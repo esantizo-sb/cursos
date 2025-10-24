@@ -245,31 +245,16 @@
     </div>
 
     <!-- Cargar Scripts de Firebase y Lógica de la App -->
+    <!-- Cargar Scripts de Firebase y Lógica de la App -->
     <script type="module">
-        // Importar funciones de Firebase (usando versión 10.12.2 para mayor compatibilidad)
+        // Importar funciones de Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { 
-            getAuth, 
-            signInAnonymously, 
-            onAuthStateChanged 
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            getDoc, 
-            setDoc, 
-            addDoc,
-            updateDoc,
-            deleteDoc,
-            onSnapshot,
-            collection,
-            query,
-            getDocs
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- Configuración de Firebase y LLM ---
         
-        // Tu configuración de Firebase (ya integrada)
+        // Tu configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCzdisLBwXH9U56AtBuIcvlOmEMGqSoJTI",
             authDomain: "tablero-75ea2.firebaseapp.com",
@@ -287,57 +272,17 @@
 
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
-        // Inicializar Firebase
+        // Variables globales de la app
         let app, db, auth, userId;
         let coursesColRef;
         let currentEditingId = null;
 
         // --- Datos Iniciales de los Cursos ---
         const initialCourses = [
-            {
-                grade: "7° Grado",
-                title: "Creatividad y Lógica Digital",
-                emoji: "🧩",
-                tools: "Scratch, MakeCode Arcade, Canva, Piskel",
-                objective: "Desarrollar el pensamiento lógico y la creatividad digital a través del diseño de videojuegos y animaciones, fortaleciendo las habilidades tecnológicas básicas.",
-                week1: "Semana 1: Introducción a la lógica digital y programación por bloques.",
-                week2: "Semana 2: Creación de videojuegos sencillos en Scratch o MakeCode Arcade.",
-                week3: "Semana 3: Diseño digital con Canva y arte pixelado con Piskel.",
-                week4: "Semana 4: Integración del videojuego completo."
-            },
-            {
-                grade: "8° Grado",
-                title: "Innovación y Desarrollo de Ideas Digitales",
-                emoji: "💡",
-                tools: "App Inventor, Thunkable, Google Sheets, Make.com, Canva",
-                objective: "Desarrollar la capacidad de crear soluciones digitales mediante aplicaciones y automatizaciones sin código, promoviendo la creatividad tecnológica.",
-                week1: "Semana 1: Introducción a la creación de aplicaciones.",
-                week2: "Semana 2: Uso de App Inventor o Thunkable para crear apps interactivas.",
-                week3: "Semana 3: Introducción a la automatización sin código (Make.com o Zapier).",
-                week4: "Semana 4: Proyecto final – Aplicación automatizada."
-            },
-            {
-                grade: "9° Grado",
-                title: "Automatización Inteligente con n8n",
-                emoji: "💻",
-                tools: "n8n, Notion, Google Sheets, ChatGPT, APIs públicas",
-                objective: "Desarrollar competencias en automatización digital y flujo de datos mediante el uso de herramientas no-code como n8n, aplicando conocimientos en productividad y tecnología avanzada.",
-                week1: "Semana 1: Introducción a la automatización y entorno de n8n.",
-                week2: "Semana 2: Conexión de herramientas y APIs.",
-                week3: "Semana 3: Automatizaciones avanzadas con inteligencia artificial.",
-                week4: "Semana 4: Proyecto final – Flujo de trabajo completo."
-            },
-            {
-                grade: "10° Grado",
-                title: "Normas APA - 10° Grado",
-                emoji: "📄",
-                tools: "Microsoft Word 2024, Google Docs, Zotero, Mendeley, Scribbr",
-                objective: "Desarrollar en los estudiantes la capacidad de citar, referenciar y estructurar correctamente documentos académicos siguiendo las Normas APA (7ª edición).",
-                week1: "Semana 1: Introducción a las Normas APA",
-                week2: "Semana 2: Citas en el texto (textuales y parafraseadas)",
-                week3: "Semana 3: Referencias bibliográficas completas",
-                week4: "Semana 4: Proyecto final – Documento de investigación con Normas APA"
-            }
+            { grade: "7° Grado", title: "Creatividad y Lógica Digital", emoji: "🧩", tools: "Scratch, MakeCode Arcade, Canva, Piskel", objective: "Desarrollar el pensamiento lógico y la creatividad digital a través del diseño de videojuegos y animaciones.", week1: "Semana 1: Introducción a la lógica digital.", week2: "Semana 2: Creación de videojuegos en Scratch.", week3: "Semana 3: Diseño digital con Canva.", week4: "Semana 4: Integración del videojuego." },
+            { grade: "8° Grado", title: "Innovación y Desarrollo de Ideas", emoji: "💡", tools: "App Inventor, Thunkable, Google Sheets", objective: "Crear soluciones digitales mediante aplicaciones y automatizaciones sin código.", week1: "Semana 1: Introducción a la creación de apps.", week2: "Semana 2: Uso de App Inventor o Thunkable.", week3: "Semana 3: Automatización sin código (Make.com).", week4: "Semana 4: Proyecto final – Aplicación automatizada." },
+            { grade: "9° Grado", title: "Automatización Inteligente", emoji: "💻", tools: "n8n, Notion, Google Sheets, ChatGPT, APIs", objective: "Desarrollar competencias en automatización digital y flujo de datos con n8n.", week1: "Semana 1: Introducción a n8n.", week2: "Semana 2: Conexión de herramientas y APIs.", week3: "Semana 3: Automatizaciones con IA.", week4: "Semana 4: Proyecto final – Flujo de trabajo completo." },
+            { grade: "10° Grado", title: "Normas APA - Investigación", emoji: "📄", tools: "Microsoft Word, Google Docs, Zotero", objective: "Desarrollar la capacidad de citar y estructurar documentos académicos con Normas APA.", week1: "Semana 1: Introducción a las Normas APA.", week2: "Semana 2: Citas en el texto.", week3: "Semana 3: Referencias bibliográficas.", week4: "Semana 4: Proyecto final – Documento de investigación." }
         ];
 
         // --- Selectores del DOM ---
@@ -345,8 +290,6 @@
         const addCourseBtn = document.getElementById('add-course-btn');
         const messageContainer = document.getElementById('message-container');
         const messageText = document.getElementById('message-text');
-        
-        // Modal de Detalles
         const detailsModal = document.getElementById('details-modal');
         const closeDetailsBtn = document.getElementById('close-details-btn');
         const btnDownloadPDF = document.getElementById('btn-download-pdf');
@@ -354,8 +297,6 @@
         const btnGenerateMarketing = document.getElementById('btn-generate-marketing');
         const marketingSpinner = document.getElementById('marketing-spinner');
         const marketingBtnText = document.getElementById('marketing-btn-text');
-
-        // Modal de Edición/Creación
         const editModal = document.getElementById('edit-modal');
         const editModalTitle = document.getElementById('edit-modal-title');
         const closeEditBtn = document.getElementById('close-edit-btn');
@@ -369,85 +310,64 @@
         const formGrade = document.getElementById('form-grade');
 
         // --- Funciones de Utilidad ---
-
         function showMessage(msg, type = 'error') {
             messageText.textContent = msg;
-            messageContainer.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            messageContainer.className = 'mb-6 rounded-lg p-4 text-sm'; // Reset classes
             if (type === 'success') {
                 messageContainer.classList.add('bg-green-100', 'text-green-800');
             } else {
                 messageContainer.classList.add('bg-red-100', 'text-red-800');
             }
-            setTimeout(() => {
-                messageContainer.classList.add('hidden');
-            }, 5000);
+            messageContainer.classList.remove('hidden');
+            setTimeout(() => messageContainer.classList.add('hidden'), 5000);
         }
 
         async function callGeminiApi(payload) {
             if (apiKey === "REEMPLAZA_CON_TU_API_KEY_DE_GEMINI") {
-                throw new Error("API Key de Gemini no configurada. Por favor, edita el archivo HTML.");
+                throw new Error("API Key de Gemini no configurada.");
             }
-            const MAX_RETRIES = 3;
-            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-                try {
-                    const response = await fetch(GEMINI_API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 429 && attempt < MAX_RETRIES - 1) {
-                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-                            console.warn(`Tasa límite excedida (429). Reintentando en ${Math.round(delay / 1000)}s...`);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
-                        }
-                        const errorBody = await response.json();
-                        console.error("Error en la API de Gemini:", errorBody);
-                        throw new Error(`Error en la API: ${errorBody.error?.message || response.statusText}`);
-                    }
-
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error('Respuesta de la IA vacía o mal formada.');
-                    return text.trim();
-
-                } catch (error) {
-                    if (attempt === MAX_RETRIES - 1) {
-                        console.error('Fallo en la llamada a la API de Gemini:', error);
-                        throw new Error('Error de conectividad con el servicio de IA. Intenta de nuevo.');
-                    }
-                    const delay = Math.pow(2, attempt) * 1000;
-                    await new Promise(resolve => setTimeout(resolve, delay));
+            try {
+                const response = await fetch(GEMINI_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`Error en la API: ${errorBody.error?.message || response.statusText}`);
                 }
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error('Respuesta de la IA vacía.');
+                return text.trim();
+            } catch (error) {
+                console.error('Fallo en la llamada a la API de Gemini:', error);
+                throw new Error('Error de conectividad con el servicio de IA.');
             }
-            throw new Error('No se pudo obtener respuesta de la IA.');
         }
 
         // --- Funciones de Firebase ---
-
         async function initializeAndAuth() {
             try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-
-                // --- Habilitar persistencia offline para Firestore ---
-                import { enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-                
-                try {
-                    await enableIndexedDbPersistence(db);
-                    console.log("✅ Persistencia local habilitada para Firestore.");
-                } catch (err) {
-                    if (err.code === 'failed-precondition') {
-                        console.warn("⚠️ Persistencia no habilitada: múltiples pestañas abiertas.");
-                    } else if (err.code === 'unimplemented') {
-                        console.warn("⚠️ El navegador no soporta persistencia offline de Firestore.");
+                auth = getAuth(app);
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log('Usuario autenticado:', userId);
+                        coursesColRef = collection(db, "courses");
+                        await seedDatabase();
+                        listenForCourses();
                     } else {
-                        console.error("Error al habilitar persistencia:", err);
+                        await signInAnonymously(auth);
                     }
-                }
-
+                });
+            } catch (error) {
+                console.error("Error al inicializar Firebase:", error);
+                showMessage("Error al conectar con la base de datos.");
+            }
+        }
 
         async function seedDatabase() {
             try {
@@ -468,15 +388,10 @@
             const q = query(coursesColRef);
             onSnapshot(q, (snapshot) => {
                 coursesGrid.innerHTML = '';
-                let courses = [];
-                snapshot.forEach((doc) => {
-                    courses.push({ id: doc.id, ...doc.data() });
-                });
-
+                let courses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 courses.sort((a, b) => a.grade.localeCompare(b.grade, undefined, { numeric: true }));
-
                 if (courses.length === 0) {
-                    coursesGrid.innerHTML = `<p class="text-gray-500 col-span-full text-center">No hay cursos para mostrar. ¡Agrega uno!</p>`;
+                    coursesGrid.innerHTML = `<p class="text-gray-500 col-span-full text-center">No hay cursos. ¡Agrega uno!</p>`;
                 } else {
                     courses.forEach(renderCourseCard);
                 }
@@ -486,16 +401,13 @@
             });
         }
 
-        // --- Funciones de Lógica de la Aplicación (UI/CRUD) ---
-
+        // --- Lógica de la Aplicación (UI/CRUD) ---
         function renderCourseCard(course) {
             const card = document.createElement('div');
             card.className = "course-card rounded-lg bg-white p-6 shadow-lg transition-transform hover:scale-[1.03]";
             card.dataset.id = course.id;
-
             const colors = ['bg-teal-100', 'bg-sky-100', 'bg-purple-100', 'bg-yellow-100', 'bg-pink-100'];
-            const colorClass = colors[Math.abs(course.title.split("").reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % colors.length];
-
+            const colorClass = colors[Math.abs(course.title.split("").reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % colors.length];
             card.innerHTML = `
                 <div class="flex h-12 w-12 items-center justify-center rounded-full ${colorClass} text-2xl">${course.emoji || '🎓'}</div>
                 <p class="mt-4 text-sm font-semibold text-teal-600">${course.grade || 'N/A'}</p>
@@ -505,8 +417,7 @@
                     <button data-action="details" class="flex-1 rounded-md bg-sky-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-sky-600 min-w-[60px] text-center">Ver</button>
                     <button data-action="edit" class="flex-1 rounded-md bg-yellow-400 px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-yellow-500 min-w-[60px] text-center">Editar</button>
                     <button data-action="delete" class="flex-1 rounded-md bg-red-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-600 min-w-[60px] text-center">Borrar</button>
-                </div>
-            `;
+                </div>`;
             coursesGrid.appendChild(card);
         }
 
@@ -516,7 +427,6 @@
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const course = docSnap.data();
-                    
                     document.getElementById('detail-emoji').textContent = course.emoji;
                     document.getElementById('detail-grade').textContent = course.grade;
                     document.getElementById('detail-title').textContent = course.title;
@@ -526,37 +436,26 @@
                     document.getElementById('detail-week2').textContent = course.week2;
                     document.getElementById('detail-week3').textContent = course.week3;
                     document.getElementById('detail-week4').textContent = course.week4;
-                    
-                    const marketingSummary = course.marketingSummary || 'Haz clic en "Generar" para obtener un texto promocional de máximo 60 palabras.';
-                    document.getElementById('detail-marketing-summary').textContent = marketingSummary;
-
+                    document.getElementById('detail-marketing-summary').textContent = course.marketingSummary || 'Haz clic en "Generar" para obtener un texto promocional.';
                     detailsModal.dataset.courseId = id;
                     detailsModal.dataset.courseTitle = course.title;
-
                     detailsModal.classList.remove('hidden');
                     detailsModal.classList.add('flex');
-                } else {
-                    showMessage("Error: No se encontró el curso.");
                 }
             } catch (error) {
-                console.error("Error al obtener el curso:", error);
                 showMessage("Error al cargar los detalles del curso.");
             }
         }
 
-        function closeDetailsModal() {
-            detailsModal.classList.add('hidden');
-            detailsModal.classList.remove('flex');
-        }
+        function closeDetailsModal() { detailsModal.classList.add('hidden'); detailsModal.classList.remove('flex'); }
 
         async function openEditModal(id) {
             editForm.reset();
+            currentEditingId = id;
             if (id) {
-                currentEditingId = id;
                 editModalTitle.textContent = 'Editar Curso';
                 try {
-                    const docRef = doc(db, "courses", id);
-                    const docSnap = await getDoc(docRef);
+                    const docSnap = await getDoc(doc(db, "courses", id));
                     if (docSnap.exists()) {
                         const course = docSnap.data();
                         document.getElementById('form-grade').value = course.grade;
@@ -569,95 +468,55 @@
                         document.getElementById('form-week3').value = course.week3;
                         document.getElementById('form-week4').value = course.week4;
                     }
-                } catch (error) {
-                    console.error("Error al cargar datos para editar:", error);
-                    showMessage("Error al cargar datos del curso para edición.");
-                }
+                } catch (error) { showMessage("Error al cargar datos para editar."); }
             } else {
-                currentEditingId = null;
                 editModalTitle.textContent = 'Agregar Nuevo Curso';
             }
             editModal.classList.remove('hidden');
             editModal.classList.add('flex');
         }
 
-        function closeEditModal() {
-            editModal.classList.add('hidden');
-            editModal.classList.remove('flex');
-            currentEditingId = null;
-            editForm.reset();
-        }
+        function closeEditModal() { editModal.classList.add('hidden'); editModal.classList.remove('flex'); }
 
         async function handleFormSubmit(e) {
             e.preventDefault();
             const courseData = {
-                grade: formGrade.value,
-                emoji: document.getElementById('form-emoji').value,
-                title: formTitle.value,
-                tools: document.getElementById('form-tools').value,
-                objective: formObjective.value,
-                week1: document.getElementById('form-week1').value,
-                week2: document.getElementById('form-week2').value,
-                week3: document.getElementById('form-week3').value,
-                week4: document.getElementById('form-week4').value,
+                grade: formGrade.value, emoji: document.getElementById('form-emoji').value, title: formTitle.value,
+                tools: document.getElementById('form-tools').value, objective: formObjective.value, week1: document.getElementById('form-week1').value,
+                week2: document.getElementById('form-week2').value, week3: document.getElementById('form-week3').value, week4: document.getElementById('form-week4').value,
             };
-
             try {
                 if (currentEditingId) {
-                    const docRef = doc(db, "courses", currentEditingId);
-                    await updateDoc(docRef, { ...courseData, marketingSummary: null });
-                    showMessage('Curso actualizado correctamente.', 'success');
+                    await updateDoc(doc(db, "courses", currentEditingId), { ...courseData, marketingSummary: null });
+                    showMessage('Curso actualizado.', 'success');
                 } else {
                     await addDoc(collection(db, "courses"), courseData);
-                    showMessage('Nuevo curso agregado correctamente.', 'success');
+                    showMessage('Curso agregado.', 'success');
                 }
                 closeEditModal();
-            } catch (error) {
-                console.error("Error al guardar el curso:", error);
-                showMessage("Error al guardar el curso en la base de datos.");
-            }
+            } catch (error) { showMessage("Error al guardar el curso."); }
         }
 
         async function deleteCourse(id) {
-            if (!confirm('¿Estás seguro de que quieres eliminar este curso? Esta acción es irreversible.')) return;
+            if (!confirm('¿Estás seguro de eliminar este curso?')) return;
             try {
                 await deleteDoc(doc(db, "courses", id));
-                showMessage('Curso borrado exitosamente.', 'success');
-            } catch (error) {
-                console.error("Error al borrar el curso:", error);
-                showMessage("Error al borrar el curso de la base de datos.");
-            }
+                showMessage('Curso borrado.', 'success');
+            } catch (error) { showMessage("Error al borrar el curso."); }
         }
 
-        // --- Funcionalidades de IA (Gemini) ---
-
+        // --- Funcionalidades de IA ---
         async function generateObjective() {
-            const title = formTitle.value;
-            const grade = formGrade.value;
-            if (!title || !grade) {
-                showMessage('Ingresa el Título y el Grado para generar un objetivo.', 'error');
-                return;
-            }
-
+            if (!formTitle.value || !formGrade.value) { return showMessage('Ingresa Título y Grado.'); }
             btnGenerateObjective.disabled = true;
             objectiveBtnText.textContent = 'Generando...';
             objectiveSpinner.classList.remove('hidden');
-
-            const systemPrompt = "Actúa como un experto en diseño curricular. Genera un único y conciso objetivo general educativo para el curso, siempre comenzando con un verbo en infinitivo (ej: 'Desarrollar', 'Fomentar'). El objetivo debe ser profesional y no exceder las 30 palabras.";
-            const userQuery = `Curso: "${title}". Dirigido a: "${grade}". Genera el objetivo.`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-            };
-
+            const systemPrompt = "Actúa como experto en diseño curricular. Genera un único y conciso objetivo general para un curso, empezando con un verbo en infinitivo (ej: 'Desarrollar'). Máximo 30 palabras.";
+            const userQuery = `Curso: "${formTitle.value}". Grado: "${formGrade.value}". Genera el objetivo.`;
             try {
-                const generatedText = await callGeminiApi(payload);
-                formObjective.value = generatedText;
-                showMessage('Objetivo generado por IA con éxito.', 'success');
-            } catch (error) {
-                showMessage(error.message);
-            } finally {
+                formObjective.value = await callGeminiApi({ contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] } });
+                showMessage('Objetivo generado por IA.', 'success');
+            } catch (error) { showMessage(error.message); } finally {
                 btnGenerateObjective.disabled = false;
                 objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
                 objectiveSpinner.classList.add('hidden');
@@ -666,37 +525,19 @@
 
         async function generateMarketingSummary() {
             const courseId = detailsModal.dataset.courseId;
-            const title = document.getElementById('detail-title').textContent;
-            const objective = document.getElementById('detail-objective').textContent;
-            const tools = document.getElementById('detail-tools').textContent;
-            const weeks = [
-                document.getElementById('detail-week1').textContent,
-                document.getElementById('detail-week2').textContent,
-                document.getElementById('detail-week3').textContent,
-                document.getElementById('detail-week4').textContent,
-            ].join('; ');
-            
             btnGenerateMarketing.disabled = true;
             marketingBtnText.textContent = 'Generando...';
             marketingSpinner.classList.remove('hidden');
             document.getElementById('detail-marketing-summary').textContent = 'Generando resumen...';
-
-            const systemPrompt = "Actúa como un copywriter educativo. Crea un párrafo promocional y atractivo para el curso, ideal para redes sociales. Destaca los beneficios y sé persuasivo. NO incluyas encabezados. Máximo 60 palabras. Usa español.";
-            const userQuery = `Genera un resumen promocional para: Título: ${title}. Objetivo: ${objective}. Contenido: ${weeks}. Herramientas: ${tools}.`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-            };
-
+            const systemPrompt = "Actúa como copywriter educativo. Crea un párrafo promocional atractivo para redes sociales. Destaca beneficios. Máximo 60 palabras. En español.";
+            const userQuery = `Genera resumen para: Título: ${document.getElementById('detail-title').textContent}. Objetivo: ${document.getElementById('detail-objective').textContent}.`;
             try {
-                const generatedText = await callGeminiApi(payload);
-                const docRef = doc(db, "courses", courseId);
-                await updateDoc(docRef, { marketingSummary: generatedText });
+                const generatedText = await callGeminiApi({ contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] } });
+                await updateDoc(doc(db, "courses", courseId), { marketingSummary: generatedText });
                 document.getElementById('detail-marketing-summary').textContent = generatedText;
-                showMessage('Resumen de marketing generado y guardado.', 'success');
+                showMessage('Resumen de marketing generado.', 'success');
             } catch (error) {
-                document.getElementById('detail-marketing-summary').textContent = `[Error al generar: ${error.message}]`;
+                document.getElementById('detail-marketing-summary').textContent = `[Error: ${error.message}]`;
                 showMessage(error.message);
             } finally {
                 btnGenerateMarketing.disabled = false;
@@ -706,68 +547,28 @@
         }
 
         // --- Funciones de Descarga ---
-
         async function downloadPDF() {
-            const btn = document.getElementById('btn-download-pdf');
-            const btnSpan = btn.querySelector('span');
-            const originalText = btnSpan.textContent;
-            const originalIcon = btn.querySelector('svg').outerHTML;
-            
-            btn.disabled = true;
-            btnSpan.textContent = 'Generando...';
-            btn.querySelector('svg').remove();
-            btn.insertAdjacentHTML('afterbegin', '<div class="spinner mr-2"></div>');
-
             const marketingContainer = document.getElementById('marketing-summary-container');
             marketingContainer.style.display = 'none';
-
             try {
                 const { jsPDF } = window.jspdf;
                 const content = document.getElementById('printable-content');
-                const title = detailsModal.dataset.courseTitle || 'curso';
-                
                 const canvas = await html2canvas(content, { scale: 2, backgroundColor: '#ffffff' });
-                const imgData = canvas.toDataURL('image/png');
-                
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = pdf.internal.pageSize.getHeight();
-                
-                const ratio = Math.min((pdfWidth - 20) / canvas.width, (pdfHeight - 20) / canvas.height);
-                const imgFinalWidth = canvas.width * ratio;
-                const imgFinalHeight = canvas.height * ratio;
-
-                const imgX = (pdfWidth - imgFinalWidth) / 2;
-                const imgY = 10;
-                
-                pdf.addImage(imgData, 'PNG', imgX, imgY, imgFinalWidth, imgFinalHeight);
-                pdf.save(`${title.replace(/ /g, '_')}.pdf`);
-            } catch (error) {
-                console.error("Error generando PDF:", error);
-                showMessage("Error al generar el archivo PDF.");
-            } finally {
+                const ratio = (pdfWidth - 20) / canvas.width;
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, canvas.width * ratio, canvas.height * ratio);
+                pdf.save(`${detailsModal.dataset.courseTitle.replace(/ /g, '_')}.pdf`);
+            } catch (error) { showMessage("Error al generar el PDF."); } finally {
                 marketingContainer.style.display = 'block';
-                btn.disabled = false;
-                btnSpan.textContent = originalText;
-                btn.querySelector('.spinner')?.remove();
-                btn.insertAdjacentHTML('afterbegin', originalIcon);
             }
         }
 
         function downloadWord() {
-            const title = detailsModal.dataset.courseTitle || 'curso';
-            const grade = document.getElementById('detail-grade').textContent;
-            const emoji = document.getElementById('detail-emoji').textContent;
-            const objective = document.getElementById('detail-objective').textContent;
-            const tools = document.getElementById('detail-tools').textContent;
-            const week1 = document.getElementById('detail-week1').textContent;
-            const week2 = document.getElementById('detail-week2').textContent;
-            const week3 = document.getElementById('detail-week3').textContent;
-            const week4 = document.getElementById('detail-week4').textContent;
-
-            const styles = `<style>body{font-family:Calibri,sans-serif;margin:40px;} .container{max-width:800px;margin:auto;} .header{display:flex;align-items:center;border-bottom:2px solid #4A5568;padding-bottom:12px;margin-bottom:20px;} .emoji{font-size:48px;margin-right:16px;} .grade{color:#2C5282;font-weight:bold;} .title{color:#1A202C;font-size:24px;font-weight:bold;margin:0;} h3{color:#2C5282;border-bottom:1px solid #CBD5E0;padding-bottom:4px;margin-top:24px;} ul{padding-left:20px;}</style>`;
-            const htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${title}</title>${styles}</head><body><div class="container"><div class="header"><span class="emoji">${emoji}</span><div><p class="grade">${grade}</p><h1 class="title">${title}</h1></div></div><div><h3>🎯 Objetivo General</h3><p>${objective}</p></div><div><h3>🛠️ Herramientas</h3><p>${tools}</p></div><div><h3>📅 Plan Semanal</h3><ul><li>${week1}</li><li>${week2}</li><li>${week3}</li><li>${week4}</li></ul></div></div></body></html>`;
-
+            const title = detailsModal.dataset.courseTitle;
+            const content = document.getElementById('printable-content').innerHTML;
+            const styles = `<style>body{font-family:Calibri,sans-serif;} h2{font-size:20px;color:#2F5496;} h3{font-size:16px;color:#3A87AD;border-bottom:1px solid #ccc;}</style>`;
+            const htmlContent = `<html><head><meta charset='utf-8'>${styles}</head><body>${content}</body></html>`;
             const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -779,28 +580,22 @@
 
         // --- Asignación de Eventos ---
         document.addEventListener('DOMContentLoaded', initializeAndAuth);
-
         coursesGrid.addEventListener('click', (e) => {
             const button = e.target.closest('button');
             if (!button) return;
-            const card = e.target.closest('.course-card');
-            const courseId = card.dataset.id;
             const action = button.dataset.action;
-
+            const courseId = e.target.closest('.course-card').dataset.id;
             if (action === 'details') openDetailsModal(courseId);
             else if (action === 'edit') openEditModal(courseId);
             else if (action === 'delete') deleteCourse(courseId);
         });
-        
         addCourseBtn.addEventListener('click', () => openEditModal(null));
         closeDetailsBtn.addEventListener('click', closeDetailsModal);
         closeEditBtn.addEventListener('click', closeEditModal);
         cancelEditBtn.addEventListener('click', closeEditModal);
         editForm.addEventListener('submit', handleFormSubmit);
-
         btnGenerateObjective.addEventListener('click', generateObjective);
         btnGenerateMarketing.addEventListener('click', generateMarketingSummary);
-
         btnDownloadPDF.addEventListener('click', downloadPDF);
         btnDownloadWord.addEventListener('click', downloadWord);
 
@@ -808,5 +603,6 @@
 
 </body>
 </html>
+
 
 
