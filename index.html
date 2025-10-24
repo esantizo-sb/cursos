@@ -244,17 +244,15 @@
         </div>
     </div>
 
-
-    <!-- 3. Cargar Scripts de Firebase y Lógica de la App -->
+    <!-- Cargar Scripts de Firebase y Lógica de la App -->
     <script type="module">
-        // Importar funciones de Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // Importar funciones de Firebase (usando versión 10.12.2 para mayor compatibilidad)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { 
             getAuth, 
             signInAnonymously, 
-            signInWithCustomToken, 
             onAuthStateChanged 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { 
             getFirestore, 
             doc, 
@@ -266,23 +264,33 @@
             onSnapshot,
             collection,
             query,
-            getDocs,
-            setLogLevel
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- Configuración de Firebase y LLM ---
         
-        // Variables globales de la app (inyectadas por el entorno)
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-course-dashboard';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const apiKey = ""; // Dejar vacío; el entorno de Canvas lo proporcionará
-        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        // Tu configuración de Firebase (ya integrada)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCzdisLBwXH9U56AtBuIcvlOmEMGqSoJTI",
+            authDomain: "tablero-75ea2.firebaseapp.com",
+            projectId: "tablero-75ea2",
+            storageBucket: "tablero-75ea2.appspot.com",
+            messagingSenderId: "692017296241",
+            appId: "1:692017296241:web:592b0b557920f6eb12bcd0",
+            measurementId: "G-XJ0X8TC6RE"
+        };
+        
+        // ===================================================================
+        // ¡ACCIÓN REQUERIDA! REEMPLAZA ESTA LÍNEA CON TU PROPIA API KEY
+        const apiKey = "REEMPLAZA_CON_TU_API_KEY_DE_GEMINI"; 
+        // ===================================================================
+
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
         // Inicializar Firebase
         let app, db, auth, userId;
-        let coursesColRef; // Referencia a la colección de cursos
-        let currentEditingId = null; // ID del curso que se está editando
+        let coursesColRef;
+        let currentEditingId = null;
 
         // --- Datos Iniciales de los Cursos ---
         const initialCourses = [
@@ -362,11 +370,6 @@
 
         // --- Funciones de Utilidad ---
 
-        /**
-         * Muestra un mensaje de alerta temporal.
-         * @param {string} msg - El mensaje a mostrar.
-         * @param {string} type - 'success' o 'error'.
-         */
         function showMessage(msg, type = 'error') {
             messageText.textContent = msg;
             messageContainer.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
@@ -380,13 +383,11 @@
             }, 5000);
         }
 
-        /**
-         * Realiza una llamada a la API de Gemini con manejo de reintentos.
-         * @param {object} payload - El cuerpo de la solicitud de la API.
-         * @returns {Promise<string>} El texto generado por la IA.
-         */
         async function callGeminiApi(payload) {
-            const MAX_RETRIES = 5;
+            if (apiKey === "REEMPLAZA_CON_TU_API_KEY_DE_GEMINI") {
+                throw new Error("API Key de Gemini no configurada. Por favor, edita el archivo HTML.");
+            }
+            const MAX_RETRIES = 3;
             for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
                 try {
                     const response = await fetch(GEMINI_API_URL, {
@@ -402,68 +403,50 @@
                             await new Promise(resolve => setTimeout(resolve, delay));
                             continue;
                         }
-                        throw new Error(`Error en la API: ${response.status} ${response.statusText}`);
+                        const errorBody = await response.json();
+                        console.error("Error en la API de Gemini:", errorBody);
+                        throw new Error(`Error en la API: ${errorBody.error?.message || response.statusText}`);
                     }
 
                     const result = await response.json();
                     const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) {
-                        throw new Error('Respuesta de la IA vacía o mal formada.');
-                    }
+                    if (!text) throw new Error('Respuesta de la IA vacía o mal formada.');
                     return text.trim();
 
                 } catch (error) {
                     if (attempt === MAX_RETRIES - 1) {
-                        console.error('Fallo en la llamada a la API de Gemini después de múltiples reintentos:', error);
-                        throw new Error('Error de conectividad con el servicio de IA. Intenta de nuevo más tarde.');
+                        console.error('Fallo en la llamada a la API de Gemini:', error);
+                        throw new Error('Error de conectividad con el servicio de IA. Intenta de nuevo.');
                     }
-                    // Si falla por otras razones, reintenta con backoff
-                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-                    console.warn(`Error en la solicitud. Reintentando en ${Math.round(delay / 1000)}s...`);
+                    const delay = Math.pow(2, attempt) * 1000;
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
             throw new Error('No se pudo obtener respuesta de la IA.');
         }
 
-
         // --- Funciones de Firebase ---
 
-        /**
-         * Inicializa Firebase y autentica al usuario.
-         */
         async function initializeAndAuth() {
             try {
-                if (!firebaseConfig.apiKey) {
-                    console.error("Configuración de Firebase no encontrada.");
-                    coursesGrid.innerHTML = `<p class="text-red-500 col-span-full">Error: Configuración de Firebase no válida.</p>`;
-                    return;
-                }
-
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                setLogLevel('debug');
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         console.log('Usuario autenticado:', userId);
                         
-                        // Definir la ruta de la colección (pública)
-                        coursesColRef = collection(db, `artifacts/${appId}/public/data/courses`);
+                        coursesColRef = collection(db, "courses"); // Colección simple
                         
-                        // Poblar la base de datos si está vacía y luego escuchar cambios
                         await seedDatabase();
                         listenForCourses();
-
                     } else {
-                        console.log('Usuario no autenticado, intentando iniciar sesión.');
-                        await authUser(); // Intentar autenticar de nuevo si se desconecta
+                        console.log('Usuario no autenticado, iniciando sesión anónima.');
+                        await signInAnonymously(auth);
                     }
                 });
-
-                await authUser(); // Iniciar sesión la primera vez
 
             } catch (error) {
                 console.error("Error al inicializar Firebase:", error);
@@ -471,29 +454,11 @@
             }
         }
 
-        /**
-         * Autentica al usuario con token o anónimamente.
-         */
-        async function authUser() {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error('Error de autenticación:', error);
-                showMessage('Fallo en la autenticación de Firebase.');
-            }
-        }
-
-        /**
-         * Puebla la base de datos con los cursos iniciales si está vacía.
-         */
         async function seedDatabase() {
             try {
                 const snapshot = await getDocs(coursesColRef);
                 if (snapshot.empty) {
+                    console.log("Base de datos vacía, poblando con datos iniciales...");
                     for (const course of initialCourses) {
                         await addDoc(coursesColRef, course);
                     }
@@ -504,21 +469,16 @@
             }
         }
 
-        /**
-         * Escucha cambios en la colección de cursos y renderiza el tablero.
-         */
         function listenForCourses() {
             const q = query(coursesColRef);
-            
             onSnapshot(q, (snapshot) => {
-                coursesGrid.innerHTML = ''; // Limpiar el tablero
+                coursesGrid.innerHTML = '';
                 let courses = [];
                 snapshot.forEach((doc) => {
                     courses.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Ordenar en JS (por grado)
-                courses.sort((a, b) => a.grade.localeCompare(b.grade));
+                courses.sort((a, b) => a.grade.localeCompare(b.grade, undefined, { numeric: true }));
 
                 if (courses.length === 0) {
                     coursesGrid.innerHTML = `<p class="text-gray-500 col-span-full text-center">No hay cursos para mostrar. ¡Agrega uno!</p>`;
@@ -531,19 +491,15 @@
             });
         }
 
-
         // --- Funciones de Lógica de la Aplicación (UI/CRUD) ---
 
-        /**
-         * Crea el HTML para una tarjeta de curso y la añade al grid.
-         */
         function renderCourseCard(course) {
             const card = document.createElement('div');
             card.className = "course-card rounded-lg bg-white p-6 shadow-lg transition-transform hover:scale-[1.03]";
             card.dataset.id = course.id;
 
             const colors = ['bg-teal-100', 'bg-sky-100', 'bg-purple-100', 'bg-yellow-100', 'bg-pink-100'];
-            const colorClass = colors[course.grade.charCodeAt(0) % colors.length];
+            const colorClass = colors[Math.abs(course.title.split("").reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) % colors.length];
 
             card.innerHTML = `
                 <div class="flex h-12 w-12 items-center justify-center rounded-full ${colorClass} text-2xl">${course.emoji || '🎓'}</div>
@@ -559,12 +515,9 @@
             coursesGrid.appendChild(card);
         }
 
-        /**
-         * Abre el modal de detalles con la información del curso.
-         */
         async function openDetailsModal(id) {
             try {
-                const docRef = doc(db, coursesColRef.path, id);
+                const docRef = doc(db, "courses", id);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const course = docSnap.data();
@@ -579,11 +532,9 @@
                     document.getElementById('detail-week3').textContent = course.week3;
                     document.getElementById('detail-week4').textContent = course.week4;
                     
-                    // Mostrar resumen de marketing si existe, sino, placeholder
                     const marketingSummary = course.marketingSummary || 'Haz clic en "Generar" para obtener un texto promocional de máximo 60 palabras.';
                     document.getElementById('detail-marketing-summary').textContent = marketingSummary;
 
-                    // Guardar el ID para las funciones de descarga/IA
                     detailsModal.dataset.courseId = id;
                     detailsModal.dataset.courseTitle = course.title;
 
@@ -598,24 +549,18 @@
             }
         }
 
-        /**
-         * Cierra el modal de detalles.
-         */
         function closeDetailsModal() {
             detailsModal.classList.add('hidden');
             detailsModal.classList.remove('flex');
         }
 
-        /**
-         * Abre el modal de edición, ya sea para crear o actualizar.
-         */
         async function openEditModal(id) {
             editForm.reset();
             if (id) {
                 currentEditingId = id;
                 editModalTitle.textContent = 'Editar Curso';
                 try {
-                    const docRef = doc(db, coursesColRef.path, id);
+                    const docRef = doc(db, "courses", id);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
                         const course = docSnap.data();
@@ -641,9 +586,6 @@
             editModal.classList.add('flex');
         }
 
-        /**
-         * Cierra el modal de edición.
-         */
         function closeEditModal() {
             editModal.classList.add('hidden');
             editModal.classList.remove('flex');
@@ -651,9 +593,6 @@
             editForm.reset();
         }
 
-        /**
-         * Maneja el guardado (crear o actualizar) del formulario de edición.
-         */
         async function handleFormSubmit(e) {
             e.preventDefault();
             const courseData = {
@@ -666,17 +605,15 @@
                 week2: document.getElementById('form-week2').value,
                 week3: document.getElementById('form-week3').value,
                 week4: document.getElementById('form-week4').value,
-                // marketingSummary se borra o mantiene si se edita el curso, para forzar el re-gen.
             };
 
             try {
                 if (currentEditingId) {
-                    const docRef = doc(db, coursesColRef.path, currentEditingId);
-                    // Importante: Eliminar marketingSummary al actualizar, para que el usuario pueda regenerarlo si quiere.
+                    const docRef = doc(db, "courses", currentEditingId);
                     await updateDoc(docRef, { ...courseData, marketingSummary: null });
                     showMessage('Curso actualizado correctamente.', 'success');
                 } else {
-                    await addDoc(coursesColRef, courseData);
+                    await addDoc(collection(db, "courses"), courseData);
                     showMessage('Nuevo curso agregado correctamente.', 'success');
                 }
                 closeEditModal();
@@ -686,14 +623,10 @@
             }
         }
 
-        /**
-         * Borra un curso de la base de datos.
-         */
         async function deleteCourse(id) {
             if (!confirm('¿Estás seguro de que quieres eliminar este curso? Esta acción es irreversible.')) return;
             try {
-                const docRef = doc(db, coursesColRef.path, id);
-                await deleteDoc(docRef);
+                await deleteDoc(doc(db, "courses", id));
                 showMessage('Curso borrado exitosamente.', 'success');
             } catch (error) {
                 console.error("Error al borrar el curso:", error);
@@ -701,27 +634,21 @@
             }
         }
 
-
         // --- Funcionalidades de IA (Gemini) ---
 
-        /**
-         * Genera un objetivo educativo utilizando Gemini basado en el título y grado.
-         */
         async function generateObjective() {
             const title = formTitle.value;
             const grade = formGrade.value;
-            
             if (!title || !grade) {
-                showMessage('Por favor, ingresa el Título del Curso y el Grado para generar un objetivo.', 'error');
+                showMessage('Ingresa el Título y el Grado para generar un objetivo.', 'error');
                 return;
             }
 
-            // UI de Carga
             btnGenerateObjective.disabled = true;
             objectiveBtnText.textContent = 'Generando...';
             objectiveSpinner.classList.remove('hidden');
 
-            const systemPrompt = "Actúa como un experto en diseño curricular. Genera un único y conciso objetivo general educativo para el curso, siempre comenzando con un verbo en infinitivo (ej: 'Desarrollar', 'Fomentar', 'Capacitar'). El objetivo debe ser profesional y no debe exceder las 30 palabras.";
+            const systemPrompt = "Actúa como un experto en diseño curricular. Genera un único y conciso objetivo general educativo para el curso, siempre comenzando con un verbo en infinitivo (ej: 'Desarrollar', 'Fomentar'). El objetivo debe ser profesional y no exceder las 30 palabras.";
             const userQuery = `Curso: "${title}". Dirigido a: "${grade}". Genera el objetivo.`;
 
             const payload = {
@@ -735,18 +662,13 @@
                 showMessage('Objetivo generado por IA con éxito.', 'success');
             } catch (error) {
                 showMessage(error.message);
-                formObjective.value = `[Error al generar objetivo: ${error.message}]`;
             } finally {
-                // Restaurar UI
                 btnGenerateObjective.disabled = false;
                 objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
                 objectiveSpinner.classList.add('hidden');
             }
         }
 
-        /**
-         * Genera un resumen de marketing utilizando Gemini y lo guarda en el curso.
-         */
         async function generateMarketingSummary() {
             const courseId = detailsModal.dataset.courseId;
             const title = document.getElementById('detail-title').textContent;
@@ -759,15 +681,13 @@
                 document.getElementById('detail-week4').textContent,
             ].join('; ');
             
-            // UI de Carga
             btnGenerateMarketing.disabled = true;
             marketingBtnText.textContent = 'Generando...';
             marketingSpinner.classList.remove('hidden');
-            
-            document.getElementById('detail-marketing-summary').textContent = 'Generando resumen promocional...';
+            document.getElementById('detail-marketing-summary').textContent = 'Generando resumen...';
 
-            const systemPrompt = "Actúa como un copywriter de marketing educativo. Crea un único párrafo promocional y atractivo para el curso que sirva para redes sociales o folletos. El texto debe destacar los beneficios y ser muy persuasivo. NO incluyas encabezados o listas. El texto generado debe ser un máximo de 60 palabras. Debes usar el español.";
-            const userQuery = `Genera un resumen promocional para el siguiente curso. Título: ${title}. Objetivo: ${objective}. Contenido: ${weeks}. Herramientas clave: ${tools}.`;
+            const systemPrompt = "Actúa como un copywriter educativo. Crea un párrafo promocional y atractivo para el curso, ideal para redes sociales. Destaca los beneficios y sé persuasivo. NO incluyas encabezados. Máximo 60 palabras. Usa español.";
+            const userQuery = `Genera un resumen promocional para: Título: ${title}. Objetivo: ${objective}. Contenido: ${weeks}. Herramientas: ${tools}.`;
 
             const payload = {
                 contents: [{ parts: [{ text: userQuery }] }],
@@ -776,47 +696,33 @@
 
             try {
                 const generatedText = await callGeminiApi(payload);
-                
-                // 1. Guardar el resumen generado en Firebase
-                const docRef = doc(db, coursesColRef.path, courseId);
+                const docRef = doc(db, "courses", courseId);
                 await updateDoc(docRef, { marketingSummary: generatedText });
-
-                // 2. Actualizar la UI del modal
                 document.getElementById('detail-marketing-summary').textContent = generatedText;
-                showMessage('Resumen de marketing generado y guardado con éxito.', 'success');
-
+                showMessage('Resumen de marketing generado y guardado.', 'success');
             } catch (error) {
-                document.getElementById('detail-marketing-summary').textContent = `[Error al generar resumen: ${error.message}]`;
+                document.getElementById('detail-marketing-summary').textContent = `[Error al generar: ${error.message}]`;
                 showMessage(error.message);
             } finally {
-                // Restaurar UI
                 btnGenerateMarketing.disabled = false;
                 marketingBtnText.textContent = '✨ Generar / Refrescar';
                 marketingSpinner.classList.add('hidden');
             }
         }
 
-
         // --- Funciones de Descarga ---
 
-        /**
-         * Inicia la generación y descarga de un PDF desde el contenido del modal.
-         */
         async function downloadPDF() {
             const btn = document.getElementById('btn-download-pdf');
             const btnSpan = btn.querySelector('span');
             const originalText = btnSpan.textContent;
             const originalIcon = btn.querySelector('svg').outerHTML;
             
-            // Mostrar estado de carga
             btn.disabled = true;
             btnSpan.textContent = 'Generando...';
             btn.querySelector('svg').remove();
-            const tempIcon = document.createElement('div');
-            tempIcon.className = 'spinner mr-2';
-            btn.prepend(tempIcon);
+            btn.insertAdjacentHTML('afterbegin', '<div class="spinner mr-2"></div>');
 
-            // Ocultar el contenedor de marketing temporalmente para el PDF
             const marketingContainer = document.getElementById('marketing-summary-container');
             marketingContainer.style.display = 'none';
 
@@ -825,37 +731,27 @@
                 const content = document.getElementById('printable-content');
                 const title = detailsModal.dataset.courseTitle || 'curso';
                 
-                // Usar html2canvas para capturar el div como una imagen
-                const canvas = await html2canvas(content, { 
-                    scale: 2, // Mejorar resolución
-                    backgroundColor: '#ffffff'
-                });
+                const canvas = await html2canvas(content, { scale: 2, backgroundColor: '#ffffff' });
                 const imgData = canvas.toDataURL('image/png');
                 
-                // Configurar PDF (A4)
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
                 
-                const imgWidth = canvas.width;
-                const imgHeight = canvas.height;
-                
-                const ratio = Math.min((pdfWidth - 20) / imgWidth, (pdfHeight - 20) / imgHeight);
-                const imgFinalWidth = imgWidth * ratio;
-                const imgFinalHeight = imgHeight * ratio;
+                const ratio = Math.min((pdfWidth - 20) / canvas.width, (pdfHeight - 20) / canvas.height);
+                const imgFinalWidth = canvas.width * ratio;
+                const imgFinalHeight = canvas.height * ratio;
 
                 const imgX = (pdfWidth - imgFinalWidth) / 2;
                 const imgY = 10;
                 
                 pdf.addImage(imgData, 'PNG', imgX, imgY, imgFinalWidth, imgFinalHeight);
                 pdf.save(`${title.replace(/ /g, '_')}.pdf`);
-
             } catch (error) {
                 console.error("Error generando PDF:", error);
                 showMessage("Error al generar el archivo PDF.");
             } finally {
-                // Restaurar UI
-                marketingContainer.style.display = 'block'; // Mostrar de nuevo
+                marketingContainer.style.display = 'block';
                 btn.disabled = false;
                 btnSpan.textContent = originalText;
                 btn.querySelector('.spinner')?.remove();
@@ -863,9 +759,6 @@
             }
         }
 
-        /**
-         * Genera un archivo .doc (HTML) estilizado y lo descarga.
-         */
         function downloadWord() {
             const title = detailsModal.dataset.courseTitle || 'curso';
             const grade = document.getElementById('detail-grade').textContent;
@@ -876,161 +769,43 @@
             const week2 = document.getElementById('detail-week2').textContent;
             const week3 = document.getElementById('detail-week3').textContent;
             const week4 = document.getElementById('detail-week4').textContent;
-            // El resumen de marketing no se incluye en el DOCX/PDF por ser solo para promoción
 
-            const styles = `
-                <style>
-                    body {
-                        font-family: 'Inter', sans-serif;
-                        color: #374151;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    .container {
-                        width: 90%;
-                        max-width: 800px;
-                        margin: 40px auto;
-                        padding: 24px 32px;
-                        background-color: #ffffff;
-                        border: 1px solid #e0e7ff;
-                        border-radius: 8px;
-                    }
-                    .header {
-                        width: 100%;
-                        border-bottom: 2px solid #0369a1;
-                        padding-bottom: 16px;
-                        margin-bottom: 24px;
-                    }
-                    .emoji {
-                        font-size: 48px;
-                        width: 60px;
-                        vertical-align: top;
-                    }
-                    .header-text {
-                        vertical-align: middle;
-                    }
-                    .grade {
-                        font-size: 16px;
-                        font-weight: 600;
-                        color: #0d9488;
-                        margin: 0;
-                    }
-                    .title {
-                        font-size: 28px;
-                        font-weight: 700;
-                        color: #0369a1;
-                        margin: 0;
-                    }
-                    h3 {
-                        font-size: 18px;
-                        font-weight: 600;
-                        color: #0c4a6e;
-                        border-bottom: 1px solid #bae6fd;
-                        padding-bottom: 4px;
-                        margin-top: 24px;
-                    }
-                    p, li {
-                        font-size: 14px;
-                        line-height: 1.6;
-                    }
-                    ul {
-                        padding-left: 20px;
-                        list-style-type: disc;
-                    }
-                </style>
-            `;
+            const styles = `<style>body{font-family:Calibri,sans-serif;margin:40px;} .container{max-width:800px;margin:auto;} .header{display:flex;align-items:center;border-bottom:2px solid #4A5568;padding-bottom:12px;margin-bottom:20px;} .emoji{font-size:48px;margin-right:16px;} .grade{color:#2C5282;font-weight:bold;} .title{color:#1A202C;font-size:24px;font-weight:bold;margin:0;} h3{color:#2C5282;border-bottom:1px solid #CBD5E0;padding-bottom:4px;margin-top:24px;} ul{padding-left:20px;}</style>`;
+            const htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${title}</title>${styles}</head><body><div class="container"><div class="header"><span class="emoji">${emoji}</span><div><p class="grade">${grade}</p><h1 class="title">${title}</h1></div></div><div><h3>🎯 Objetivo General</h3><p>${objective}</p></div><div><h3>🛠️ Herramientas</h3><p>${tools}</p></div><div><h3>📅 Plan Semanal</h3><ul><li>${week1}</li><li>${week2}</li><li>${week3}</li><li>${week4}</li></ul></div></div></body></html>`;
 
-            const htmlContent = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head>
-                    <meta charset='utf-8'>
-                    <title>${title}</title>
-                    ${styles}
-                </head>
-                <body>
-                    <div class="container">
-                        <table class="header">
-                            <tr>
-                                <td class="emoji">${emoji}</td>
-                                <td class="header-text">
-                                    <p class="grade">${grade}</p>
-                                    <h1 class="title">${title}</h1>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <div>
-                            <h3>🎯 Objetivo General</h3>
-                            <p>${objective}</p>
-                        </div>
-                        <div>
-                            <h3>🛠️ Herramientas</h3>
-                            <p>${tools}</p>
-                        </div>
-                        <div>
-                            <h3>📅 Plan Semanal</h3>
-                            <ul>
-                                <li>${week1}</li>
-                                <li>${week2}</li>
-                                <li>${week3}</li>
-                                <li>${week4}</li>
-                            </ul>
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `;
-
-            const blob = new Blob(['\ufeff', htmlContent], {
-                type: 'application/msword'
-            });
-            
+            const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
             a.download = `${title.replace(/ /g, '_')}.doc`;
-            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
         }
-
 
         // --- Asignación de Eventos ---
         document.addEventListener('DOMContentLoaded', initializeAndAuth);
 
-        // Clicks en el grid
         coursesGrid.addEventListener('click', (e) => {
             const button = e.target.closest('button');
             if (!button) return;
-
             const card = e.target.closest('.course-card');
             const courseId = card.dataset.id;
             const action = button.dataset.action;
 
-            if (action === 'details') {
-                openDetailsModal(courseId);
-            } else if (action === 'edit') {
-                openEditModal(courseId);
-            } else if (action === 'delete') {
-                deleteCourse(courseId);
-            }
+            if (action === 'details') openDetailsModal(courseId);
+            else if (action === 'edit') openEditModal(courseId);
+            else if (action === 'delete') deleteCourse(courseId);
         });
         
-        // Botones de Modales
         addCourseBtn.addEventListener('click', () => openEditModal(null));
-        
         closeDetailsBtn.addEventListener('click', closeDetailsModal);
         closeEditBtn.addEventListener('click', closeEditModal);
         cancelEditBtn.addEventListener('click', closeEditModal);
-        
         editForm.addEventListener('submit', handleFormSubmit);
 
-        // Botones de IA
         btnGenerateObjective.addEventListener('click', generateObjective);
         btnGenerateMarketing.addEventListener('click', generateMarketingSummary);
 
-        // Botones de descarga
         btnDownloadPDF.addEventListener('click', downloadPDF);
         btnDownloadWord.addEventListener('click', downloadWord);
 
