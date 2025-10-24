@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Cursos de Vacaciones con IA</title>
+    <!-- 1. Cargar Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Cargar la fuente Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 3. Cargar librerías para PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* Estilos personalizados */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f9ff; /* bg-sky-50 */
+        }
+        
+        /* Estilos para el spinner de carga */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Estilos para la impresión (PDF) */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-content, #printable-content * {
+                visibility: visible;
+            }
+            #printable-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+                background: white;
+                color: black;
+            }
+            h1, h2, h3 {
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-sky-50 text-gray-900">
+
+    <!-- Contenedor Principal -->
+    <div class="container mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+        <!-- Encabezado y Botón de "Agregar" -->
+        <header class="mb-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <h1 class="text-3xl font-bold text-sky-700 sm:text-4xl">
+                🚀 Tablero de Cursos
+            </h1>
+            <button id="add-course-btn" class="flex items-center gap-2 rounded-lg bg-teal-500 px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2">
+                <!-- Icono SVG: Añadir -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                </svg>
+                Agregar Nuevo Curso
+            </button>
+        </header>
+        
+        <!-- Contenedor de Alerta/Mensaje -->
+        <div id="message-container" class="mb-6 hidden rounded-lg bg-red-100 p-4 text-sm text-red-800" role="alert">
+            <p id="message-text"></p>
+        </div>
+
+        <!-- Rejilla de Cursos -->
+        <main id="courses-grid" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <!-- Las tarjetas de cursos se insertarán aquí dinámicamente -->
+        </main>
+
+        <!-- Pie de Página -->
+        <footer class="mt-12 border-t border-sky-200 pt-6 text-center">
+            <p class="text-sm text-sky-700">DevOps Elvis Santizo</p>
+        </footer>
+    </div>
+
+    <!-- ----------------------- -->
+    <!-- MODALES (Ocultos por defecto) -->
+    <!-- ----------------------- -->
+
+    <!-- Modal: Ver Detalles del Curso -->
+    <div id="details-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 backdrop-blur-sm" data-course-id="" data-course-title="">
+        <div class="relative w-full max-w-2xl rounded-lg bg-white shadow-2xl">
+            <!-- Botón de Cerrar Modal -->
+            <button id="close-details-btn" class="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-white shadow-lg transition hover:bg-gray-900">
+                <!-- Icono SVG: Cerrar -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+            </button>
+            
+            <!-- Contenido Imprimible -->
+            <div id="printable-content" class="h-full max-h-[70vh] overflow-y-auto p-6 sm:p-8">
+                <div class="flex items-center gap-4">
+                    <span id="detail-emoji" class="text-4xl"></span>
+                    <div>
+                        <p id="detail-grade" class="text-base font-semibold text-teal-600"></p>
+                        <h2 id="detail-title" class="text-2xl font-bold text-gray-900"></h2>
+                    </div>
+                </div>
+
+                <div class="mt-6 space-y-4">
+                    <div>
+                        <h3 class="font-semibold text-sky-800">🎯 Objetivo General</h3>
+                        <p id="detail-objective" class="mt-1 text-gray-700"></p>
+                    </div>
+                    <!-- Contenedor del Resumen de Marketing (IA) -->
+                    <div id="marketing-summary-container" class="rounded-lg bg-yellow-50 p-4 border border-yellow-200">
+                        <h3 class="font-semibold text-amber-700 flex items-center gap-2">
+                            📢 Resumen para Marketing (IA)
+                            <button id="btn-generate-marketing" class="ml-auto flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-xs font-medium text-amber-900 transition hover:bg-amber-500">
+                                <span id="marketing-btn-text">✨ Generar / Refrescar</span>
+                                <div id="marketing-spinner" class="spinner hidden"></div>
+                            </button>
+                        </h3>
+                        <p id="detail-marketing-summary" class="mt-2 text-sm text-gray-700 italic">
+                            Haz clic en "Generar" para obtener un texto promocional de máximo 60 palabras.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h3 class="font-semibold text-sky-800">🛠️ Herramientas</h3>
+                        <p id="detail-tools" class="mt-1 text-gray-700"></p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-sky-800">📅 Plan Semanal</h3>
+                        <ul class="mt-1 list-inside list-disc space-y-1 text-gray-700">
+                            <li id="detail-week1"></li>
+                            <li id="detail-week2"></li>
+                            <li id="detail-week3"></li>
+                            <li id="detail-week4"></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de Acción (No imprimibles) -->
+            <div class="flex flex-col gap-3 rounded-b-lg border-t border-gray-200 bg-gray-50 p-4 sm:flex-row sm:justify-end">
+                <button id="btn-download-pdf" class="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700">
+                    <!-- Icono SVG: PDF -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5"><path fill-rule="evenodd" d="M3 3.75A.75.75 0 013.75 3h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V3.75zM5.5 10.75a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9z" clip-rule="evenodd" /></svg>
+                    <span>Descargar PDF</span>
+                </button>
+                <button id="btn-download-word" class="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">
+                    <!-- Icono SVG: Word (Doc) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5"><path fill-rule="evenodd" d="M3 3.75A.75.75 0 013.75 3h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V3.75zM5.5 7.5a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9zM5.5 10.75a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9zM5.5 14a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9z" clip-rule="evenodd" /></svg>
+                    Descargar Word
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Agregar/Editar Curso -->
+    <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div class="relative w-full max-w-2xl rounded-lg bg-white shadow-2xl">
+            <!-- Botón de Cerrar Modal -->
+            <button id="close-edit-btn" class="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-white shadow-lg transition hover:bg-gray-900">
+                <!-- Icono SVG: Cerrar -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+            </button>
+            
+            <form id="edit-form" class="h-full max-h-[85vh] overflow-y-auto">
+                <h2 id="edit-modal-title" class="border-b border-gray-200 p-6 text-2xl font-bold text-gray-900">
+                    Agregar Curso
+                </h2>
+                
+                <div class="grid grid-cols-1 gap-x-6 gap-y-4 p-6 sm:grid-cols-2">
+                    <!-- Campos del Formulario -->
+                    <div>
+                        <label for="form-grade" class="block text-sm font-medium text-gray-700">Grado</label>
+                        <input type="text" id="form-grade" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="Ej: 7° Grado">
+                    </div>
+                    <div>
+                        <label for="form-emoji" class="block text-sm font-medium text-gray-700">Emoji</label>
+                        <input type="text" id="form-emoji" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="Ej: 🧩">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="form-title" class="block text-sm font-medium text-gray-700">Título del Curso</label>
+                        <input type="text" id="form-title" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="Ej: Creatividad y Lógica Digital">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="form-tools" class="block text-sm font-medium text-gray-700">Herramientas</label>
+                        <input type="text" id="form-tools" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500" placeholder="Ej: Scratch, Canva, Piskel">
+                    </div>
+                    <!-- Campo de Objetivo con Integración de IA -->
+                    <div class="sm:col-span-2">
+                        <label for="form-objective" class="block text-sm font-medium text-gray-700 mb-1">
+                            Objetivo General
+                            <button type="button" id="btn-generate-objective" class="ml-2 inline-flex items-center gap-1 rounded-full bg-sky-400 px-3 py-1 text-xs font-medium text-sky-900 transition hover:bg-sky-500 disabled:opacity-50" title="Genera un objetivo basado en el Título y el Grado">
+                                <span id="objective-btn-text">✨ Generar Objetivo (IA)</span>
+                                <div id="objective-spinner" class="spinner hidden"></div>
+                            </button>
+                        </label>
+                        <textarea id="form-objective" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500"></textarea>
+                    </div>
+                    <!-- Plan Semanal -->
+                    <div class="sm:col-span-2">
+                        <label for="form-week1" class="block text-sm font-medium text-gray-700">Semana 1</label>
+                        <input type="text" id="form-week1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="form-week2" class="block text-sm font-medium text-gray-700">Semana 2</label>
+                        <input type="text" id="form-week2" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="form-week3" class="block text-sm font-medium text-gray-700">Semana 3</label>
+                        <input type="text" id="form-week3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="form-week4" class="block text-sm font-medium text-gray-700">Semana 4</label>
+                        <input type="text" id="form-week4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                    </div>
+                </div>
+                
+                <!-- Botón de Guardar -->
+                <div class="flex justify-end gap-3 rounded-b-lg border-t border-gray-200 bg-gray-50 p-4">
+                    <button type="button" id="cancel-edit-btn" class="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-300">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-600">
+                        Guardar Curso
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- 3. Cargar Scripts de Firebase y Lógica de la App -->
+    <script type="module">
+        // Importar funciones de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            setDoc, 
+            addDoc,
+            updateDoc,
+            deleteDoc,
+            onSnapshot,
+            collection,
+            query,
+            getDocs,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuración de Firebase y LLM ---
+        
+        // Variables globales de la app (inyectadas por el entorno)
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-course-dashboard';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const apiKey = ""; // Dejar vacío; el entorno de Canvas lo proporcionará
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // Inicializar Firebase
+        let app, db, auth, userId;
+        let coursesColRef; // Referencia a la colección de cursos
+        let currentEditingId = null; // ID del curso que se está editando
+
+        // --- Datos Iniciales de los Cursos ---
+        const initialCourses = [
+            {
+                grade: "7° Grado",
+                title: "Creatividad y Lógica Digital",
+                emoji: "🧩",
+                tools: "Scratch, MakeCode Arcade, Canva, Piskel",
+                objective: "Desarrollar el pensamiento lógico y la creatividad digital a través del diseño de videojuegos y animaciones, fortaleciendo las habilidades tecnológicas básicas.",
+                week1: "Semana 1: Introducción a la lógica digital y programación por bloques.",
+                week2: "Semana 2: Creación de videojuegos sencillos en Scratch o MakeCode Arcade.",
+                week3: "Semana 3: Diseño digital con Canva y arte pixelado con Piskel.",
+                week4: "Semana 4: Integración del videojuego completo."
+            },
+            {
+                grade: "8° Grado",
+                title: "Innovación y Desarrollo de Ideas Digitales",
+                emoji: "💡",
+                tools: "App Inventor, Thunkable, Google Sheets, Make.com, Canva",
+                objective: "Desarrollar la capacidad de crear soluciones digitales mediante aplicaciones y automatizaciones sin código, promoviendo la creatividad tecnológica.",
+                week1: "Semana 1: Introducción a la creación de aplicaciones.",
+                week2: "Semana 2: Uso de App Inventor o Thunkable para crear apps interactivas.",
+                week3: "Semana 3: Introducción a la automatización sin código (Make.com o Zapier).",
+                week4: "Semana 4: Proyecto final – Aplicación automatizada."
+            },
+            {
+                grade: "9° Grado",
+                title: "Automatización Inteligente con n8n",
+                emoji: "💻",
+                tools: "n8n, Notion, Google Sheets, ChatGPT, APIs públicas",
+                objective: "Desarrollar competencias en automatización digital y flujo de datos mediante el uso de herramientas no-code como n8n, aplicando conocimientos en productividad y tecnología avanzada.",
+                week1: "Semana 1: Introducción a la automatización y entorno de n8n.",
+                week2: "Semana 2: Conexión de herramientas y APIs.",
+                week3: "Semana 3: Automatizaciones avanzadas con inteligencia artificial.",
+                week4: "Semana 4: Proyecto final – Flujo de trabajo completo."
+            },
+            {
+                grade: "10° Grado",
+                title: "Normas APA - 10° Grado",
+                emoji: "📄",
+                tools: "Microsoft Word 2024, Google Docs, Zotero, Mendeley, Scribbr",
+                objective: "Desarrollar en los estudiantes la capacidad de citar, referenciar y estructurar correctamente documentos académicos siguiendo las Normas APA (7ª edición).",
+                week1: "Semana 1: Introducción a las Normas APA",
+                week2: "Semana 2: Citas en el texto (textuales y parafraseadas)",
+                week3: "Semana 3: Referencias bibliográficas completas",
+                week4: "Semana 4: Proyecto final – Documento de investigación con Normas APA"
+            }
+        ];
+
+        // --- Selectores del DOM ---
+        const coursesGrid = document.getElementById('courses-grid');
+        const addCourseBtn = document.getElementById('add-course-btn');
+        const messageContainer = document.getElementById('message-container');
+        const messageText = document.getElementById('message-text');
+        
+        // Modal de Detalles
+        const detailsModal = document.getElementById('details-modal');
+        const closeDetailsBtn = document.getElementById('close-details-btn');
+        const btnDownloadPDF = document.getElementById('btn-download-pdf');
+        const btnDownloadWord = document.getElementById('btn-download-word');
+        const btnGenerateMarketing = document.getElementById('btn-generate-marketing');
+        const marketingSpinner = document.getElementById('marketing-spinner');
+        const marketingBtnText = document.getElementById('marketing-btn-text');
+
+        // Modal de Edición/Creación
+        const editModal = document.getElementById('edit-modal');
+        const editModalTitle = document.getElementById('edit-modal-title');
+        const closeEditBtn = document.getElementById('close-edit-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const editForm = document.getElementById('edit-form');
+        const formObjective = document.getElementById('form-objective');
+        const btnGenerateObjective = document.getElementById('btn-generate-objective');
+        const objectiveSpinner = document.getElementById('objective-spinner');
+        const objectiveBtnText = document.getElementById('objective-btn-text');
+        const formTitle = document.getElementById('form-title');
+        const formGrade = document.getElementById('form-grade');
+
+        // --- Funciones de Utilidad ---
+
+        /**
+         * Muestra un mensaje de alerta temporal.
+         * @param {string} msg - El mensaje a mostrar.
+         * @param {string} type - 'success' o 'error'.
+         */
+        function showMessage(msg, type = 'error') {
+            messageText.textContent = msg;
+            messageContainer.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            if (type === 'success') {
+                messageContainer.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                messageContainer.classList.add('bg-red-100', 'text-red-800');
+            }
+            setTimeout(() => {
+                messageContainer.classList.add('hidden');
+            }, 5000);
+        }
+
+        /**
+         * Realiza una llamada a la API de Gemini con manejo de reintentos.
+         * @param {object} payload - El cuerpo de la solicitud de la API.
+         * @returns {Promise<string>} El texto generado por la IA.
+         */
+        async function callGeminiApi(payload) {
+            const MAX_RETRIES = 5;
+            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                try {
+                    const response = await fetch(GEMINI_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                            console.warn(`Tasa límite excedida (429). Reintentando en ${Math.round(delay / 1000)}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw new Error(`Error en la API: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) {
+                        throw new Error('Respuesta de la IA vacía o mal formada.');
+                    }
+                    return text.trim();
+
+                } catch (error) {
+                    if (attempt === MAX_RETRIES - 1) {
+                        console.error('Fallo en la llamada a la API de Gemini después de múltiples reintentos:', error);
+                        throw new Error('Error de conectividad con el servicio de IA. Intenta de nuevo más tarde.');
+                    }
+                    // Si falla por otras razones, reintenta con backoff
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    console.warn(`Error en la solicitud. Reintentando en ${Math.round(delay / 1000)}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            throw new Error('No se pudo obtener respuesta de la IA.');
+        }
+
+
+        // --- Funciones de Firebase ---
+
+        /**
+         * Inicializa Firebase y autentica al usuario.
+         */
+        async function initializeAndAuth() {
+            try {
+                if (!firebaseConfig.apiKey) {
+                    console.error("Configuración de Firebase no encontrada.");
+                    coursesGrid.innerHTML = `<p class="text-red-500 col-span-full">Error: Configuración de Firebase no válida.</p>`;
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('debug');
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log('Usuario autenticado:', userId);
+                        
+                        // Definir la ruta de la colección (pública)
+                        coursesColRef = collection(db, `artifacts/${appId}/public/data/courses`);
+                        
+                        // Poblar la base de datos si está vacía y luego escuchar cambios
+                        await seedDatabase();
+                        listenForCourses();
+
+                    } else {
+                        console.log('Usuario no autenticado, intentando iniciar sesión.');
+                        await authUser(); // Intentar autenticar de nuevo si se desconecta
+                    }
+                });
+
+                await authUser(); // Iniciar sesión la primera vez
+
+            } catch (error) {
+                console.error("Error al inicializar Firebase:", error);
+                showMessage("Error al conectar con la base de datos. Verifica la consola.");
+            }
+        }
+
+        /**
+         * Autentica al usuario con token o anónimamente.
+         */
+        async function authUser() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error('Error de autenticación:', error);
+                showMessage('Fallo en la autenticación de Firebase.');
+            }
+        }
+
+        /**
+         * Puebla la base de datos con los cursos iniciales si está vacía.
+         */
+        async function seedDatabase() {
+            try {
+                const snapshot = await getDocs(coursesColRef);
+                if (snapshot.empty) {
+                    for (const course of initialCourses) {
+                        await addDoc(coursesColRef, course);
+                    }
+                }
+            } catch (error) {
+                console.error("Error al poblar la base de datos:", error);
+                showMessage("Error al cargar datos iniciales.");
+            }
+        }
+
+        /**
+         * Escucha cambios en la colección de cursos y renderiza el tablero.
+         */
+        function listenForCourses() {
+            const q = query(coursesColRef);
+            
+            onSnapshot(q, (snapshot) => {
+                coursesGrid.innerHTML = ''; // Limpiar el tablero
+                let courses = [];
+                snapshot.forEach((doc) => {
+                    courses.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Ordenar en JS (por grado)
+                courses.sort((a, b) => a.grade.localeCompare(b.grade));
+
+                if (courses.length === 0) {
+                    coursesGrid.innerHTML = `<p class="text-gray-500 col-span-full text-center">No hay cursos para mostrar. ¡Agrega uno!</p>`;
+                } else {
+                    courses.forEach(renderCourseCard);
+                }
+            }, (error) => {
+                console.error("Error al escuchar cursos:", error);
+                showMessage("Error al cargar los cursos en tiempo real.");
+            });
+        }
+
+
+        // --- Funciones de Lógica de la Aplicación (UI/CRUD) ---
+
+        /**
+         * Crea el HTML para una tarjeta de curso y la añade al grid.
+         */
+        function renderCourseCard(course) {
+            const card = document.createElement('div');
+            card.className = "course-card rounded-lg bg-white p-6 shadow-lg transition-transform hover:scale-[1.03]";
+            card.dataset.id = course.id;
+
+            const colors = ['bg-teal-100', 'bg-sky-100', 'bg-purple-100', 'bg-yellow-100', 'bg-pink-100'];
+            const colorClass = colors[course.grade.charCodeAt(0) % colors.length];
+
+            card.innerHTML = `
+                <div class="flex h-12 w-12 items-center justify-center rounded-full ${colorClass} text-2xl">${course.emoji || '🎓'}</div>
+                <p class="mt-4 text-sm font-semibold text-teal-600">${course.grade || 'N/A'}</p>
+                <h2 class="mt-1 text-xl font-bold text-gray-900 truncate">${course.title || 'Curso sin título'}</h2>
+                <p class="mt-2 text-sm text-gray-600 truncate">${course.tools || 'Sin herramientas'}</p>
+                <div class="mt-6 flex flex-wrap gap-2">
+                    <button data-action="details" class="flex-1 rounded-md bg-sky-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-sky-600 min-w-[60px] text-center">Ver</button>
+                    <button data-action="edit" class="flex-1 rounded-md bg-yellow-400 px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-yellow-500 min-w-[60px] text-center">Editar</button>
+                    <button data-action="delete" class="flex-1 rounded-md bg-red-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-600 min-w-[60px] text-center">Borrar</button>
+                </div>
+            `;
+            coursesGrid.appendChild(card);
+        }
+
+        /**
+         * Abre el modal de detalles con la información del curso.
+         */
+        async function openDetailsModal(id) {
+            try {
+                const docRef = doc(db, coursesColRef.path, id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const course = docSnap.data();
+                    
+                    document.getElementById('detail-emoji').textContent = course.emoji;
+                    document.getElementById('detail-grade').textContent = course.grade;
+                    document.getElementById('detail-title').textContent = course.title;
+                    document.getElementById('detail-objective').textContent = course.objective;
+                    document.getElementById('detail-tools').textContent = course.tools;
+                    document.getElementById('detail-week1').textContent = course.week1;
+                    document.getElementById('detail-week2').textContent = course.week2;
+                    document.getElementById('detail-week3').textContent = course.week3;
+                    document.getElementById('detail-week4').textContent = course.week4;
+                    
+                    // Mostrar resumen de marketing si existe, sino, placeholder
+                    const marketingSummary = course.marketingSummary || 'Haz clic en "Generar" para obtener un texto promocional de máximo 60 palabras.';
+                    document.getElementById('detail-marketing-summary').textContent = marketingSummary;
+
+                    // Guardar el ID para las funciones de descarga/IA
+                    detailsModal.dataset.courseId = id;
+                    detailsModal.dataset.courseTitle = course.title;
+
+                    detailsModal.classList.remove('hidden');
+                    detailsModal.classList.add('flex');
+                } else {
+                    showMessage("Error: No se encontró el curso.");
+                }
+            } catch (error) {
+                console.error("Error al obtener el curso:", error);
+                showMessage("Error al cargar los detalles del curso.");
+            }
+        }
+
+        /**
+         * Cierra el modal de detalles.
+         */
+        function closeDetailsModal() {
+            detailsModal.classList.add('hidden');
+            detailsModal.classList.remove('flex');
+        }
+
+        /**
+         * Abre el modal de edición, ya sea para crear o actualizar.
+         */
+        async function openEditModal(id) {
+            editForm.reset();
+            if (id) {
+                currentEditingId = id;
+                editModalTitle.textContent = 'Editar Curso';
+                try {
+                    const docRef = doc(db, coursesColRef.path, id);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const course = docSnap.data();
+                        document.getElementById('form-grade').value = course.grade;
+                        document.getElementById('form-emoji').value = course.emoji;
+                        document.getElementById('form-title').value = course.title;
+                        document.getElementById('form-tools').value = course.tools;
+                        document.getElementById('form-objective').value = course.objective;
+                        document.getElementById('form-week1').value = course.week1;
+                        document.getElementById('form-week2').value = course.week2;
+                        document.getElementById('form-week3').value = course.week3;
+                        document.getElementById('form-week4').value = course.week4;
+                    }
+                } catch (error) {
+                    console.error("Error al cargar datos para editar:", error);
+                    showMessage("Error al cargar datos del curso para edición.");
+                }
+            } else {
+                currentEditingId = null;
+                editModalTitle.textContent = 'Agregar Nuevo Curso';
+            }
+            editModal.classList.remove('hidden');
+            editModal.classList.add('flex');
+        }
+
+        /**
+         * Cierra el modal de edición.
+         */
+        function closeEditModal() {
+            editModal.classList.add('hidden');
+            editModal.classList.remove('flex');
+            currentEditingId = null;
+            editForm.reset();
+        }
+
+        /**
+         * Maneja el guardado (crear o actualizar) del formulario de edición.
+         */
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const courseData = {
+                grade: formGrade.value,
+                emoji: document.getElementById('form-emoji').value,
+                title: formTitle.value,
+                tools: document.getElementById('form-tools').value,
+                objective: formObjective.value,
+                week1: document.getElementById('form-week1').value,
+                week2: document.getElementById('form-week2').value,
+                week3: document.getElementById('form-week3').value,
+                week4: document.getElementById('form-week4').value,
+                // marketingSummary se borra o mantiene si se edita el curso, para forzar el re-gen.
+            };
+
+            try {
+                if (currentEditingId) {
+                    const docRef = doc(db, coursesColRef.path, currentEditingId);
+                    // Importante: Eliminar marketingSummary al actualizar, para que el usuario pueda regenerarlo si quiere.
+                    await updateDoc(docRef, { ...courseData, marketingSummary: null });
+                    showMessage('Curso actualizado correctamente.', 'success');
+                } else {
+                    await addDoc(coursesColRef, courseData);
+                    showMessage('Nuevo curso agregado correctamente.', 'success');
+                }
+                closeEditModal();
+            } catch (error) {
+                console.error("Error al guardar el curso:", error);
+                showMessage("Error al guardar el curso en la base de datos.");
+            }
+        }
+
+        /**
+         * Borra un curso de la base de datos.
+         */
+        async function deleteCourse(id) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este curso? Esta acción es irreversible.')) return;
+            try {
+                const docRef = doc(db, coursesColRef.path, id);
+                await deleteDoc(docRef);
+                showMessage('Curso borrado exitosamente.', 'success');
+            } catch (error) {
+                console.error("Error al borrar el curso:", error);
+                showMessage("Error al borrar el curso de la base de datos.");
+            }
+        }
+
+
+        // --- Funcionalidades de IA (Gemini) ---
+
+        /**
+         * Genera un objetivo educativo utilizando Gemini basado en el título y grado.
+         */
+        async function generateObjective() {
+            const title = formTitle.value;
+            const grade = formGrade.value;
+            
+            if (!title || !grade) {
+                showMessage('Por favor, ingresa el Título del Curso y el Grado para generar un objetivo.', 'error');
+                return;
+            }
+
+            // UI de Carga
+            btnGenerateObjective.disabled = true;
+            objectiveBtnText.textContent = 'Generando...';
+            objectiveSpinner.classList.remove('hidden');
+
+            const systemPrompt = "Actúa como un experto en diseño curricular. Genera un único y conciso objetivo general educativo para el curso, siempre comenzando con un verbo en infinitivo (ej: 'Desarrollar', 'Fomentar', 'Capacitar'). El objetivo debe ser profesional y no debe exceder las 30 palabras.";
+            const userQuery = `Curso: "${title}". Dirigido a: "${grade}". Genera el objetivo.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const generatedText = await callGeminiApi(payload);
+                formObjective.value = generatedText;
+                showMessage('Objetivo generado por IA con éxito.', 'success');
+            } catch (error) {
+                showMessage(error.message);
+                formObjective.value = `[Error al generar objetivo: ${error.message}]`;
+            } finally {
+                // Restaurar UI
+                btnGenerateObjective.disabled = false;
+                objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
+                objectiveSpinner.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Genera un resumen de marketing utilizando Gemini y lo guarda en el curso.
+         */
+        async function generateMarketingSummary() {
+            const courseId = detailsModal.dataset.courseId;
+            const title = document.getElementById('detail-title').textContent;
+            const objective = document.getElementById('detail-objective').textContent;
+            const tools = document.getElementById('detail-tools').textContent;
+            const weeks = [
+                document.getElementById('detail-week1').textContent,
+                document.getElementById('detail-week2').textContent,
+                document.getElementById('detail-week3').textContent,
+                document.getElementById('detail-week4').textContent,
+            ].join('; ');
+            
+            // UI de Carga
+            btnGenerateMarketing.disabled = true;
+            marketingBtnText.textContent = 'Generando...';
+            marketingSpinner.classList.remove('hidden');
+            
+            document.getElementById('detail-marketing-summary').textContent = 'Generando resumen promocional...';
+
+            const systemPrompt = "Actúa como un copywriter de marketing educativo. Crea un único párrafo promocional y atractivo para el curso que sirva para redes sociales o folletos. El texto debe destacar los beneficios y ser muy persuasivo. NO incluyas encabezados o listas. El texto generado debe ser un máximo de 60 palabras. Debes usar el español.";
+            const userQuery = `Genera un resumen promocional para el siguiente curso. Título: ${title}. Objetivo: ${objective}. Contenido: ${weeks}. Herramientas clave: ${tools}.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const generatedText = await callGeminiApi(payload);
+                
+                // 1. Guardar el resumen generado en Firebase
+                const docRef = doc(db, coursesColRef.path, courseId);
+                await updateDoc(docRef, { marketingSummary: generatedText });
+
+                // 2. Actualizar la UI del modal
+                document.getElementById('detail-marketing-summary').textContent = generatedText;
+                showMessage('Resumen de marketing generado y guardado con éxito.', 'success');
+
+            } catch (error) {
+                document.getElementById('detail-marketing-summary').textContent = `[Error al generar resumen: ${error.message}]`;
+                showMessage(error.message);
+            } finally {
+                // Restaurar UI
+                btnGenerateMarketing.disabled = false;
+                marketingBtnText.textContent = '✨ Generar / Refrescar';
+                marketingSpinner.classList.add('hidden');
+            }
+        }
+
+
+        // --- Funciones de Descarga ---
+
+        /**
+         * Inicia la generación y descarga de un PDF desde el contenido del modal.
+         */
+        async function downloadPDF() {
+            const btn = document.getElementById('btn-download-pdf');
+            const btnSpan = btn.querySelector('span');
+            const originalText = btnSpan.textContent;
+            const originalIcon = btn.querySelector('svg').outerHTML;
+            
+            // Mostrar estado de carga
+            btn.disabled = true;
+            btnSpan.textContent = 'Generando...';
+            btn.querySelector('svg').remove();
+            const tempIcon = document.createElement('div');
+            tempIcon.className = 'spinner mr-2';
+            btn.prepend(tempIcon);
+
+            // Ocultar el contenedor de marketing temporalmente para el PDF
+            const marketingContainer = document.getElementById('marketing-summary-container');
+            marketingContainer.style.display = 'none';
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const content = document.getElementById('printable-content');
+                const title = detailsModal.dataset.courseTitle || 'curso';
+                
+                // Usar html2canvas para capturar el div como una imagen
+                const canvas = await html2canvas(content, { 
+                    scale: 2, // Mejorar resolución
+                    backgroundColor: '#ffffff'
+                });
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Configurar PDF (A4)
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                
+                const ratio = Math.min((pdfWidth - 20) / imgWidth, (pdfHeight - 20) / imgHeight);
+                const imgFinalWidth = imgWidth * ratio;
+                const imgFinalHeight = imgHeight * ratio;
+
+                const imgX = (pdfWidth - imgFinalWidth) / 2;
+                const imgY = 10;
+                
+                pdf.addImage(imgData, 'PNG', imgX, imgY, imgFinalWidth, imgFinalHeight);
+                pdf.save(`${title.replace(/ /g, '_')}.pdf`);
+
+            } catch (error) {
+                console.error("Error generando PDF:", error);
+                showMessage("Error al generar el archivo PDF.");
+            } finally {
+                // Restaurar UI
+                marketingContainer.style.display = 'block'; // Mostrar de nuevo
+                btn.disabled = false;
+                btnSpan.textContent = originalText;
+                btn.querySelector('.spinner')?.remove();
+                btn.insertAdjacentHTML('afterbegin', originalIcon);
+            }
+        }
+
+        /**
+         * Genera un archivo .doc (HTML) estilizado y lo descarga.
+         */
+        function downloadWord() {
+            const title = detailsModal.dataset.courseTitle || 'curso';
+            const grade = document.getElementById('detail-grade').textContent;
+            const emoji = document.getElementById('detail-emoji').textContent;
+            const objective = document.getElementById('detail-objective').textContent;
+            const tools = document.getElementById('detail-tools').textContent;
+            const week1 = document.getElementById('detail-week1').textContent;
+            const week2 = document.getElementById('detail-week2').textContent;
+            const week3 = document.getElementById('detail-week3').textContent;
+            const week4 = document.getElementById('detail-week4').textContent;
+            // El resumen de marketing no se incluye en el DOCX/PDF por ser solo para promoción
+
+            const styles = `
+                <style>
+                    body {
+                        font-family: 'Inter', sans-serif;
+                        color: #374151;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .container {
+                        width: 90%;
+                        max-width: 800px;
+                        margin: 40px auto;
+                        padding: 24px 32px;
+                        background-color: #ffffff;
+                        border: 1px solid #e0e7ff;
+                        border-radius: 8px;
+                    }
+                    .header {
+                        width: 100%;
+                        border-bottom: 2px solid #0369a1;
+                        padding-bottom: 16px;
+                        margin-bottom: 24px;
+                    }
+                    .emoji {
+                        font-size: 48px;
+                        width: 60px;
+                        vertical-align: top;
+                    }
+                    .header-text {
+                        vertical-align: middle;
+                    }
+                    .grade {
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: #0d9488;
+                        margin: 0;
+                    }
+                    .title {
+                        font-size: 28px;
+                        font-weight: 700;
+                        color: #0369a1;
+                        margin: 0;
+                    }
+                    h3 {
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: #0c4a6e;
+                        border-bottom: 1px solid #bae6fd;
+                        padding-bottom: 4px;
+                        margin-top: 24px;
+                    }
+                    p, li {
+                        font-size: 14px;
+                        line-height: 1.6;
+                    }
+                    ul {
+                        padding-left: 20px;
+                        list-style-type: disc;
+                    }
+                </style>
+            `;
+
+            const htmlContent = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>${title}</title>
+                    ${styles}
+                </head>
+                <body>
+                    <div class="container">
+                        <table class="header">
+                            <tr>
+                                <td class="emoji">${emoji}</td>
+                                <td class="header-text">
+                                    <p class="grade">${grade}</p>
+                                    <h1 class="title">${title}</h1>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div>
+                            <h3>🎯 Objetivo General</h3>
+                            <p>${objective}</p>
+                        </div>
+                        <div>
+                            <h3>🛠️ Herramientas</h3>
+                            <p>${tools}</p>
+                        </div>
+                        <div>
+                            <h3>📅 Plan Semanal</h3>
+                            <ul>
+                                <li>${week1}</li>
+                                <li>${week2}</li>
+                                <li>${week3}</li>
+                                <li>${week4}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob(['\ufeff', htmlContent], {
+                type: 'application/msword'
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${title.replace(/ /g, '_')}.doc`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+
+        // --- Asignación de Eventos ---
+        document.addEventListener('DOMContentLoaded', initializeAndAuth);
+
+        // Clicks en el grid
+        coursesGrid.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const card = e.target.closest('.course-card');
+            const courseId = card.dataset.id;
+            const action = button.dataset.action;
+
+            if (action === 'details') {
+                openDetailsModal(courseId);
+            } else if (action === 'edit') {
+                openEditModal(courseId);
+            } else if (action === 'delete') {
+                deleteCourse(courseId);
+            }
+        });
+        
+        // Botones de Modales
+        addCourseBtn.addEventListener('click', () => openEditModal(null));
+        
+        closeDetailsBtn.addEventListener('click', closeDetailsModal);
+        closeEditBtn.addEventListener('click', closeEditModal);
+        cancelEditBtn.addEventListener('click', closeEditModal);
+        
+        editForm.addEventListener('submit', handleFormSubmit);
+
+        // Botones de IA
+        btnGenerateObjective.addEventListener('click', generateObjective);
+        btnGenerateMarketing.addEventListener('click', generateMarketingSummary);
+
+        // Botones de descarga
+        btnDownloadPDF.addEventListener('click', downloadPDF);
+        btnDownloadWord.addEventListener('click', downloadWord);
+
+    </script>
+
+</body>
+</html>
