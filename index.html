@@ -431,28 +431,23 @@
             try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
 
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        console.log('Usuario autenticado:', userId);
-                        
-                        coursesColRef = collection(db, "courses"); // Colección simple
-                        
-                        await seedDatabase();
-                        listenForCourses();
+                // --- Habilitar persistencia offline para Firestore ---
+                import { enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+                
+                try {
+                    await enableIndexedDbPersistence(db);
+                    console.log("✅ Persistencia local habilitada para Firestore.");
+                } catch (err) {
+                    if (err.code === 'failed-precondition') {
+                        console.warn("⚠️ Persistencia no habilitada: múltiples pestañas abiertas.");
+                    } else if (err.code === 'unimplemented') {
+                        console.warn("⚠️ El navegador no soporta persistencia offline de Firestore.");
                     } else {
-                        console.log('Usuario no autenticado, iniciando sesión anónima.');
-                        await signInAnonymously(auth);
+                        console.error("Error al habilitar persistencia:", err);
                     }
-                });
+                }
 
-            } catch (error) {
-                console.error("Error al inicializar Firebase:", error);
-                showMessage("Error al conectar con la base de datos. Verifica la consola.");
-            }
-        }
 
         async function seedDatabase() {
             try {
@@ -813,3 +808,4 @@
 
 </body>
 </html>
+
