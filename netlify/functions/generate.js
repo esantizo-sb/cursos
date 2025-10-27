@@ -7,7 +7,7 @@ export async function handler(event) {
 
     try {
         const HUGGING_FACE_TOKEN = process.env.HUGGING_FACE_TOKEN;
-        const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+        const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/google/gemma-7b-it";
 
         const { prompt } = JSON.parse(event.body);
 
