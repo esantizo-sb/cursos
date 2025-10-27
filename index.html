@@ -359,41 +359,29 @@
 
 
 
-async function callHuggingFaceApi(prompt) {
-    if (HUGGING_FACE_TOKEN.includes("pega_tu_token")) {
-        throw new Error("Token de Hugging Face no configurado.");
-    }
-    
-    // Esta función ahora usa la URL global directamente
-    const response = await fetch(HUGGING_FACE_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${HUGGING_FACE_TOKEN}`
-        },
-        body: JSON.stringify({
-            "inputs": prompt,
-            "parameters": { "max_new_tokens": 100, "return_full_text": false }
-        })
-    });
-
-    if (!response.ok) {
-        // Si el modelo está cargando, puede tardar. Intenta de nuevo en unos segundos.
-        if (response.status === 503) {
-           throw new Error("El modelo de IA está iniciándose. Por favor, inténtalo de nuevo en 30 segundos.");
-        }
-        throw new Error(`Error en la API de Hugging Face: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    const generatedText = result[0]?.generated_text;
-    
-    if (!generatedText) {
-        throw new Error('Respuesta de la IA vacía o mal formada.');
-    }
-    
-    return generatedText.trim();
-}
+        async function callHuggingFaceApi(prompt) {
+                // Esta es la URL de tu nueva función segura en Netlify
+                const NETLIFY_FUNCTION_URL = "/.netlify/functions/generate";
+            
+                const response = await fetch(NETLIFY_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt }) // Enviamos el prompt en el cuerpo
+                });
+            
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Error en la función del servidor: ${errorText}`);
+                }
+            
+                const result = await response.json();
+                
+                if (!result.text) {
+                    throw new Error('Respuesta de la IA vacía desde la función.');
+                }
+                
+                return result.text;
+            }
         
 
 // También actualiza la URL original para que no tenga el proxy
@@ -702,6 +690,7 @@ async function callHuggingFaceApi(prompt) {
 
 </body>
 </html>
+
 
 
 
