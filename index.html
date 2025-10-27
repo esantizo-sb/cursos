@@ -275,7 +275,10 @@
         //const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
        
         // Reemplaza tu línea actual con esta para estar seguro
-        const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+      //  const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+
+        // Usamos un proxy CORS para evitar problemas de navegador
+        const HUGGING_FACE_API_URL = "https://cors.sh/https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
         // Variables globales de la app
         let app, db, auth, userId;
         let coursesColRef;
@@ -699,6 +702,7 @@
 
 </body>
 </html>
+
 
 
 
