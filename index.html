@@ -267,11 +267,12 @@
         
         // ===================================================================
         // ¡ACCIÓN REQUERIDA! REEMPLAZA ESTA LÍNEA CON TU PROPIA API KEY
-        const apiKey = "AIzaSyDzaQzARcRrtIpn7AxW_s5ffAhu9XxAgSc"; 
+        const apiKey = "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"; 
         // ===================================================================
 
-        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
-
+        //const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+        const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+        
         // Variables globales de la app
         let app, db, auth, userId;
         let coursesColRef;
@@ -322,7 +323,7 @@
             setTimeout(() => messageContainer.classList.add('hidden'), 5000);
         }
 
-        async function callGeminiApi(payload) {
+       /* async function callGeminiApi(payload) {
             if (apiKey === "REEMPLAZA_CON_TU_API_KEY_DE_GEMINI") {
                 throw new Error("API Key de Gemini no configurada.");
             }
@@ -344,7 +345,55 @@
                 console.error('Fallo en la llamada a la API de Gemini:', error);
                 throw new Error('Error de conectividad con el servicio de IA.');
             }
+        }*/
+
+
+
+ async function callHuggingFaceApi(prompt) {
+    if (HUGGING_FACE_TOKEN === "pega_tu_token_hf_..._aqui") {
+        throw new Error("Token de Hugging Face no configurado.");
+    }
+    
+    // Hugging Face requiere un formato de headers diferente
+            const response = await fetch(HUGGING_FACE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${HUGGING_FACE_TOKEN}` // Así se usa el token
+                },
+                body: JSON.stringify({
+                    "inputs": prompt,
+                    "parameters": { // Parámetros para controlar la respuesta
+                        "max_new_tokens": 100, // Máximo de palabras a generar
+                        "temperature": 0.7,
+                        "return_full_text": false
+                    }
+                })
+            });
+        
+            if (!response.ok) {
+                // Si el modelo está cargando, puede dar un error 503. Le damos tiempo.
+                if (response.status === 503) {
+                    await new Promise(resolve => setTimeout(resolve, 5000)); // Espera 5 segundos
+                    return callHuggingFaceApi(prompt); // Y reintenta una vez
+                }
+                throw new Error(`Error en la API de Hugging Face: ${response.statusText}`);
+            }
+        
+            const result = await response.json();
+            
+            // La respuesta de Hugging Face tiene un formato diferente
+            const generatedText = result[0]?.generated_text;
+            
+            if (!generatedText) {
+                throw new Error('Respuesta de la IA vacía o mal formada.');
+            }
+            
+            // Limpiamos la respuesta para quitar texto innecesario
+            return generatedText.trim();
         }
+            
+        
 
         // --- Funciones de Firebase ---
         async function initializeAndAuth() {
@@ -506,7 +555,7 @@
         }
 
         // --- Funcionalidades de IA ---
-        async function generateObjective() {
+       /*  async function generateObjective() {
             if (!formTitle.value || !formGrade.value) { return showMessage('Ingresa Título y Grado.'); }
             btnGenerateObjective.disabled = true;
             objectiveBtnText.textContent = 'Generando...';
@@ -521,9 +570,28 @@
                 objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
                 objectiveSpinner.classList.add('hidden');
             }
-        }
+        }*/
 
-        async function generateMarketingSummary() {
+        async function generateObjective() {
+                if (!formTitle.value || !formGrade.value) { return showMessage('Ingresa Título y Grado.'); }
+                btnGenerateObjective.disabled = true;
+                objectiveBtnText.textContent = 'Generando...';
+                objectiveSpinner.classList.remove('hidden');
+                
+                // Creamos un "prompt" optimizado para el modelo Mistral
+                const prompt = `[INST] Actúa como experto en diseño curricular. Genera un único y conciso objetivo general para un curso, empezando con un verbo en infinitivo (ej: 'Desarrollar'). Máximo 30 palabras. Curso: "${formTitle.value}". Grado: "${formGrade.value}". Objetivo: [/INST]`;
+                
+                try {
+                    formObjective.value = await callHuggingFaceApi(prompt);
+                    showMessage('Objetivo generado por IA.', 'success');
+                } catch (error) { showMessage(error.message); } finally {
+                    btnGenerateObjective.disabled = false;
+                    objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
+                    objectiveSpinner.classList.add('hidden');
+                }
+            }
+
+       /* async function generateMarketingSummary() {
             const courseId = detailsModal.dataset.courseId;
             btnGenerateMarketing.disabled = true;
             marketingBtnText.textContent = 'Generando...';
@@ -544,7 +612,32 @@
                 marketingBtnText.textContent = '✨ Generar / Refrescar';
                 marketingSpinner.classList.add('hidden');
             }
-        }
+        }*/
+
+        async function generateMarketingSummary() {
+                const courseId = detailsModal.dataset.courseId;
+                btnGenerateMarketing.disabled = true;
+                marketingBtnText.textContent = 'Generando...';
+                marketingSpinner.classList.remove('hidden');
+                document.getElementById('detail-marketing-summary').textContent = 'Generando resumen...';
+                
+                // Prompt optimizado para Mistral
+                const prompt = `[INST] Actúa como copywriter educativo. Crea un párrafo promocional atractivo para redes sociales. Destaca beneficios. Máximo 60 palabras. En español. Título: ${document.getElementById('detail-title').textContent}. Objetivo: ${document.getElementById('detail-objective').textContent}. Resumen: [/INST]`;
+                
+                try {
+                    const generatedText = await callHuggingFaceApi(prompt);
+                    await updateDoc(doc(db, "courses", courseId), { marketingSummary: generatedText });
+                    document.getElementById('detail-marketing-summary').textContent = generatedText;
+                    showMessage('Resumen de marketing generado.', 'success');
+                } catch (error) {
+                    document.getElementById('detail-marketing-summary').textContent = `[Error: ${error.message}]`;
+                    showMessage(error.message);
+                } finally {
+                    btnGenerateMarketing.disabled = false;
+                    marketingBtnText.textContent = '✨ Generar / Refrescar';
+                    marketingSpinner.classList.add('hidden');
+                }
+            }
 
         // --- Funciones de Descarga ---
         async function downloadPDF() {
@@ -603,6 +696,7 @@
 
 </body>
 </html>
+
 
 
 
