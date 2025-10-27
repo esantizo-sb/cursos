@@ -569,23 +569,23 @@
         }*/
 
         async function generateObjective() {
-                if (!formTitle.value || !formGrade.value) { return showMessage('Ingresa Título y Grado.'); }
-                btnGenerateObjective.disabled = true;
-                objectiveBtnText.textContent = 'Generando...';
-                objectiveSpinner.classList.remove('hidden');
-                
-                // Prompt optimizado para el modelo Gemma de Google
-                const prompt = `<start_of_turn>user\nEscribe un objetivo curricular conciso para un curso llamado "${formTitle.value}" para estudiantes de "${formGrade.value}". Empieza con un verbo en infinitivo. Máximo 30 palabras.<end_of_turn>\n<start_of_turn>model\n`;
-                
-                try {
-                    formObjective.value = await callHuggingFaceApi(prompt);
-                    showMessage('Objetivo generado por IA.', 'success');
-                } catch (error) { showMessage(error.message); } finally {
-                    btnGenerateObjective.disabled = false;
-                    objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
-                    objectiveSpinner.classList.add('hidden');
-                }
+            if (!formTitle.value || !formGrade.value) { return showMessage('Ingresa Título y Grado.'); }
+            btnGenerateObjective.disabled = true;
+            objectiveBtnText.textContent = 'Generando...';
+            objectiveSpinner.classList.remove('hidden');
+            
+            // Prompt ultra-simple
+            const prompt = `Escribe un objetivo para un curso llamado "${formTitle.value}" para "${formGrade.value}".`;
+            
+            try {
+                formObjective.value = await callHuggingFaceApi(prompt);
+                showMessage('Objetivo generado por IA.', 'success');
+            } catch (error) { showMessage(error.message); } finally {
+                btnGenerateObjective.disabled = false;
+                objectiveBtnText.textContent = '✨ Generar Objetivo (IA)';
+                objectiveSpinner.classList.add('hidden');
             }
+        }
 
        /* async function generateMarketingSummary() {
             const courseId = detailsModal.dataset.courseId;
@@ -610,30 +610,30 @@
             }
         }*/
 
-     async function generateMarketingSummary() {
-                const courseId = detailsModal.dataset.courseId;
-                btnGenerateMarketing.disabled = true;
-                marketingBtnText.textContent = 'Generando...';
-                marketingSpinner.classList.remove('hidden');
-                document.getElementById('detail-marketing-summary').textContent = 'Generando resumen...';
-                
-                // Prompt optimizado para el modelo Gemma de Google
-                const prompt = `<start_of_turn>user\nEscribe un párrafo de marketing corto y atractivo en español para un curso llamado "${document.getElementById('detail-title').textContent}". Destaca los beneficios. Máximo 60 palabras.<end_of_turn>\n<start_of_turn>model\n`;
-                
-                try {
-                    const generatedText = await callHuggingFaceApi(prompt);
-                    await updateDoc(doc(db, "courses", courseId), { marketingSummary: generatedText });
-                    document.getElementById('detail-marketing-summary').textContent = generatedText;
-                    showMessage('Resumen de marketing generado.', 'success');
-                } catch (error) {
-                    document.getElementById('detail-marketing-summary').textContent = `[Error: ${error.message}]`;
-                    showMessage(error.message);
-                } finally {
-                    btnGenerateMarketing.disabled = false;
-                    marketingBtnText.textContent = '✨ Generar / Refrescar';
-                    marketingSpinner.classList.add('hidden');
-                }
+  async function generateMarketingSummary() {
+            const courseId = detailsModal.dataset.courseId;
+            btnGenerateMarketing.disabled = true;
+            marketingBtnText.textContent = 'Generando...';
+            marketingSpinner.classList.remove('hidden');
+            document.getElementById('detail-marketing-summary').textContent = 'Generando resumen...';
+            
+            // Prompt ultra-simple
+            const prompt = `Escribe un resumen de marketing en español para un curso llamado "${document.getElementById('detail-title').textContent}".`;
+            
+            try {
+                const generatedText = await callHuggingFaceApi(prompt);
+                await updateDoc(doc(db, "courses", courseId), { marketingSummary: generatedText });
+                document.getElementById('detail-marketing-summary').textContent = generatedText;
+                showMessage('Resumen de marketing generado.', 'success');
+            } catch (error) {
+                document.getElementById('detail-marketing-summary').textContent = `[Error: ${error.message}]`;
+                showMessage(error.message);
+            } finally {
+                btnGenerateMarketing.disabled = false;
+                marketingBtnText.textContent = '✨ Generar / Refrescar';
+                marketingSpinner.classList.add('hidden');
             }
+        }
 
         // --- Funciones de Descarga ---
         async function downloadPDF() {
@@ -692,6 +692,7 @@
 
 </body>
 </html>
+
 
 
 
