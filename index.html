@@ -355,49 +355,51 @@
 
 
 
- async function callHuggingFaceApi(prompt) {
-    if (HUGGING_FACE_TOKEN === "pega_tu_token_hf_..._aqui") {
+async function callHuggingFaceApi(prompt, isRetry = false) {
+    if (HUGGING_FACE_TOKEN.includes("pega_tu_token")) {
         throw new Error("Token de Hugging Face no configurado.");
     }
     
-    // Hugging Face requiere un formato de headers diferente
-            const response = await fetch(HUGGING_FACE_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${HUGGING_FACE_TOKEN}` // Así se usa el token
-                },
-                body: JSON.stringify({
-                    "inputs": prompt,
-                    "parameters": { // Parámetros para controlar la respuesta
-                        "max_new_tokens": 100, // Máximo de palabras a generar
-                        "temperature": 0.7,
-                        "return_full_text": false
-                    }
-                })
-            });
-        
-            if (!response.ok) {
-                // Si el modelo está cargando, puede dar un error 503. Le damos tiempo.
-                if (response.status === 503) {
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Espera 5 segundos
-                    return callHuggingFaceApi(prompt); // Y reintenta una vez
-                }
-                throw new Error(`Error en la API de Hugging Face: ${response.statusText}`);
-            }
-        
-            const result = await response.json();
-            
-            // La respuesta de Hugging Face tiene un formato diferente
-            const generatedText = result[0]?.generated_text;
-            
-            if (!generatedText) {
-                throw new Error('Respuesta de la IA vacía o mal formada.');
-            }
-            
-            // Limpiamos la respuesta para quitar texto innecesario
-            return generatedText.trim();
+    // Usamos un proxy CORS para evitar problemas de navegador
+    const API_URL_WITH_PROXY = "https://cors.sh/" + HUGGING_FACE_API_URL.replace("https://", "");
+
+    const response = await fetch(API_URL_WITH_PROXY, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${HUGGING_FACE_TOKEN}`
+        },
+        body: JSON.stringify({
+            "inputs": prompt,
+            "parameters": { "max_new_tokens": 100, "return_full_text": false }
+        })
+    });
+
+    if (!response.ok) {
+        // Manejo específico del error 503 (modelo cargando)
+        if (response.status === 503 && !isRetry) {
+            console.log("Modelo está cargando. Reintentando en 20 segundos...");
+            // Mostramos un mensaje al usuario en el modal
+            document.getElementById('detail-marketing-summary').textContent = 'El modelo de IA se está iniciando, por favor espera... (puede tardar hasta un minuto)';
+            await new Promise(resolve => setTimeout(resolve, 20000)); // Esperamos 20 segundos
+            return callHuggingFaceApi(prompt, true); // Reintentamos una sola vez
         }
+        // Para otros errores, mostramos el texto del estado si está disponible
+        throw new Error(`Error en la API de Hugging Face: ${response.statusText || 'Error de red o CORS'}`);
+    }
+
+    const result = await response.json();
+    const generatedText = result[0]?.generated_text;
+    
+    if (!generatedText) {
+        throw new Error('Respuesta de la IA vacía o mal formada.');
+    }
+    
+    return generatedText.trim();
+}
+
+// También actualiza la URL original para que no tenga el proxy
+const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
             
         
 
@@ -702,6 +704,7 @@
 
 </body>
 </html>
+
 
 
 
