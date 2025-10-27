@@ -574,8 +574,8 @@
                 objectiveBtnText.textContent = 'Generando...';
                 objectiveSpinner.classList.remove('hidden');
                 
-                // Creamos un "prompt" optimizado para el modelo Mistral
-                const prompt = `[INST] Actúa como experto en diseño curricular. Genera un único y conciso objetivo general para un curso, empezando con un verbo en infinitivo (ej: 'Desarrollar'). Máximo 30 palabras. Curso: "${formTitle.value}". Grado: "${formGrade.value}". Objetivo: [/INST]`;
+                // Prompt optimizado para el modelo Gemma de Google
+                const prompt = `<start_of_turn>user\nEscribe un objetivo curricular conciso para un curso llamado "${formTitle.value}" para estudiantes de "${formGrade.value}". Empieza con un verbo en infinitivo. Máximo 30 palabras.<end_of_turn>\n<start_of_turn>model\n`;
                 
                 try {
                     formObjective.value = await callHuggingFaceApi(prompt);
@@ -610,15 +610,15 @@
             }
         }*/
 
-        async function generateMarketingSummary() {
+     async function generateMarketingSummary() {
                 const courseId = detailsModal.dataset.courseId;
                 btnGenerateMarketing.disabled = true;
                 marketingBtnText.textContent = 'Generando...';
                 marketingSpinner.classList.remove('hidden');
                 document.getElementById('detail-marketing-summary').textContent = 'Generando resumen...';
                 
-                // Prompt optimizado para Mistral
-                const prompt = `[INST] Actúa como copywriter educativo. Crea un párrafo promocional atractivo para redes sociales. Destaca beneficios. Máximo 60 palabras. En español. Título: ${document.getElementById('detail-title').textContent}. Objetivo: ${document.getElementById('detail-objective').textContent}. Resumen: [/INST]`;
+                // Prompt optimizado para el modelo Gemma de Google
+                const prompt = `<start_of_turn>user\nEscribe un párrafo de marketing corto y atractivo en español para un curso llamado "${document.getElementById('detail-title').textContent}". Destaca los beneficios. Máximo 60 palabras.<end_of_turn>\n<start_of_turn>model\n`;
                 
                 try {
                     const generatedText = await callHuggingFaceApi(prompt);
@@ -692,6 +692,7 @@
 
 </body>
 </html>
+
 
 
 
