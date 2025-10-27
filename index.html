@@ -280,9 +280,8 @@
         // Usamos un proxy CORS para evitar problemas de navegador
        // const HUGGING_FACE_API_URL = "https://cors.sh/https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
         
-        // SOLUCIÓN: Usamos un proxy diferente que no causa problemas de redirección
-        // SOLUCIÓN FINAL: Usamos un solo proxy y el formato correcto.
-        const HUGGING_FACE_API_URL = "https://thingproxy.freeboard.io/fetch/https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+        // SOLUCIÓN FINAL (v2): Usamos el proxy allorigins.win que está activo.
+        const HUGGING_FACE_API_URL = "https://api.allorigins.win/raw?url=https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
         
         // Variables globales de la app
         let app, db, auth, userId;
@@ -703,6 +702,7 @@ async function callHuggingFaceApi(prompt) {
 
 </body>
 </html>
+
 
 
 
